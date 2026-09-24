@@ -1,0 +1,47 @@
+﻿@model IEnumerable<TimeTamer.Models.Goal>
+@{
+    ViewData["Title"] = "Goals";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4"><h1 class="fw-bold text-primary">Goals</h1><a asp-controller="Task" asp-action="Create" class="btn btn-primary">Add Task</a></div>
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="panel-card">
+                <h2>Create Goal</h2>
+                <form asp-action="Create" method="post">
+                    <div class="mb-3"><label class="form-label">Title</label><input name="Title" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Task Type</label><select name="TaskType" class="form-select"><option>Work</option><option>Study</option><option>Hangout</option><option>Sport</option><option>Daily</option></select></div>
+                    <div class="mb-3"><label class="form-label">Target Date</label><input name="TargetDate" type="date" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">Description</label><textarea name="Description" class="form-control" rows="3"></textarea></div>
+                    <button class="btn btn-primary w-100" type="submit">Create</button>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="row g-3">
+                @foreach (var goal in Model)
+                {
+                    var total = goal.Tasks.Count;
+                    var done = goal.Tasks.Count(t => t.IsCompleted);
+                    var percent = total == 0 ? 0 : (int)Math.Round(done * 100.0 / total);
+                    <div class="col-md-6">
+                        <div class="panel-card h-100">
+                            <div class="d-flex justify-content-between"><h2>@goal.Title</h2><span class="badge @(goal.IsCompleted ? "bg-success" : "bg-primary")">@(goal.IsCompleted ? "Done" : "Active")</span></div>
+                            <span class="badge bg-secondary mb-2">@(string.IsNullOrWhiteSpace(goal.TaskType) ? "Work" : goal.TaskType)</span>
+                            <p class="text-muted">@(goal.Description ?? "No description")</p>
+                            <div class="progress mb-2"><div class="progress-bar" style="width:@percent%">@percent%</div></div>
+                            <div class="small text-muted mb-3">@done/@total tasks completed @(goal.TargetDate.HasValue ? $"- Target {goal.TargetDate:MM/dd/yyyy}" : "")</div>
+                            <div class="d-flex gap-2">
+                                <form asp-action="Toggle" method="post"><input type="hidden" name="id" value="@goal.Id" /><button class="btn btn-sm btn-outline-success" type="submit">Toggle Done</button></form>
+                                <form asp-action="Delete" method="post" onsubmit="return confirm('Delete this goal?')"><input type="hidden" name="id" value="@goal.Id" /><button class="btn btn-sm btn-outline-danger" type="submit">Delete</button></form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+

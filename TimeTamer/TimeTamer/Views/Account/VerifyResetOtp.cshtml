@@ -1,0 +1,63 @@
+﻿@model TimeTamer.Models.VerifyOtpViewModel
+@{
+    ViewData["Title"] = "Verify OTP";
+}
+
+<div class="auth-stage">
+    <div class="auth-container otp-auth-card">
+        <div class="auth-header">
+            <span class="auth-badge">TimeTamer</span>
+            <h2>Verify OTP</h2>
+            <p>Enter the OTP sent to @(string.IsNullOrWhiteSpace(Model.Email) ? "your email" : Model.Email)</p>
+        </div>
+        @if (ViewBag.DevOtp != null)
+        {
+            <div class="alert alert-warning text-start"><strong>Development fallback OTP:</strong><div class="fs-3 fw-bold text-center mt-2">@ViewBag.DevOtp</div></div>
+        }
+        <form asp-action="VerifyResetOtp" method="post" class="auth-form" id="otpForm">
+            <input asp-for="Email" type="hidden" />
+            <input asp-for="Otp" type="hidden" id="Otp" />
+            <div asp-validation-summary="ModelOnly" class="text-danger validation-summary"></div>
+            <div class="otp-grid" aria-label="OTP code">
+                @for (var i = 0; i < 6; i++)
+                {
+                    <input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" />
+                }
+            </div>
+            <span asp-validation-for="Otp" class="text-danger d-block text-center mt-3"></span>
+            <button type="submit" class="btn auth-submit mt-3">Verify OTP</button>
+        </form>
+        <a asp-action="ForgotPassword" class="auth-link">Request a new OTP</a>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        const boxes = Array.from(document.querySelectorAll('.otp-box'));
+        const hiddenOtp = document.getElementById('Otp');
+        const form = document.getElementById('otpForm');
+        function syncOtp() {
+            hiddenOtp.value = boxes.map(box => box.value).join('');
+            if (hiddenOtp.value.length === 6) form.requestSubmit();
+        }
+        boxes.forEach((box, index) => {
+            box.addEventListener('input', () => {
+                box.value = box.value.replace(/\D/g, '').slice(0, 1);
+                if (box.value && index < boxes.length - 1) boxes[index + 1].focus();
+                syncOtp();
+            });
+            box.addEventListener('keydown', event => {
+                if (event.key === 'Backspace' && !box.value && index > 0) boxes[index - 1].focus();
+            });
+            box.addEventListener('paste', event => {
+                event.preventDefault();
+                const text = (event.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+                text.split('').forEach((digit, i) => boxes[i].value = digit);
+                boxes[Math.min(text.length, boxes.length) - 1]?.focus();
+                syncOtp();
+            });
+        });
+        boxes[0]?.focus();
+    </script>
+}

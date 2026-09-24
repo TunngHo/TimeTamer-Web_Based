@@ -1,0 +1,64 @@
+﻿@model TimeTamer.Models.PaginatedList<TimeTamer.Models.SubTask>
+@{
+    ViewData["Title"] = "Subtask Overview";
+}
+
+<div class="container subtask-workspace py-4">
+    <div class="subtask-hero">
+        <div>
+            <span class="page-kicker">Overview</span>
+            <h1>Subtasks</h1>
+            <p>Scan all small actions across your tasks and jump back into the parent task when needed.</p>
+        </div>
+        <a asp-controller="Task" asp-action="Index" class="btn btn-primary"><i class="bi bi-arrow-left me-2"></i>Back to Tasks</a>
+    </div>
+
+    <div class="subtask-table-card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;" class="text-center">#</th>
+                        <th>Subtask</th>
+                        <th>Parent Task</th>
+                        <th class="text-center">Completed At</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        int index = ((Model.PageIndex - 1) * Model.PageSize) + 1;
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="text-center fw-bold">@(index++)</td>
+                                <td><span class="@(item.IsCompleted ? "text-decoration-line-through text-muted" : "fw-medium")">@item.Title</span></td>
+                                <td><span class="badge rounded-pill text-bg-light border">@item.TaskItem?.Title</span></td>
+                                <td class="text-center">@(item.CompletedAt?.ToString("MM/dd/yyyy HH:mm") ?? "-")</td>
+                                <td class="text-center">
+                                    @if (item.IsCompleted) { <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Done</span> }
+                                    else { <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Pending</span> }
+                                </td>
+                                <td class="text-center">
+                                    <form asp-action="ToggleComplete" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <button type="submit" class="btn btn-sm @(item.IsCompleted ? "btn-outline-secondary" : "btn-success")" title="Toggle status"><i class="bi @(item.IsCompleted ? "bi-arrow-counterclockwise" : "bi-check-lg")"></i></button>
+                                    </form>
+                                    <a asp-action="Create" asp-route-taskId="@item.TaskItemId" class="btn btn-sm btn-primary" title="Manage"><i class="bi bi-box-arrow-in-right"></i></a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-2 d-block mb-2"></i>No subtasks yet.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @await Html.PartialAsync("_Pagination", Model)
+</div>
+

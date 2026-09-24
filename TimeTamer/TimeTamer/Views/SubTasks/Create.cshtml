@@ -1,0 +1,132 @@
+﻿@model TimeTamer.Models.SubTask
+@{
+    ViewData["Title"] = "Task Details";
+    var subTaskList = (ViewBag.SubTaskList as List<TimeTamer.Models.SubTask>)?.OrderBy(s => s.SortOrder).ToList();
+    var isSharedTask = ViewBag.IsSharedTask as bool? ?? false;
+}
+
+<div class="container-fluid subtask-workspace py-4">
+    <div class="subtask-hero"><div><span class="page-kicker">Subtasks</span><h1>@ViewBag.TaskTitle</h1><p>Break the task into smaller steps, reorder them, and track completion from one focused workspace.</p></div><a asp-controller="Task" asp-action="Index" class="btn btn-outline-primary"><i class="bi bi-arrow-left me-2"></i>Back to Tasks</a></div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 subtask-panel">
+                <div class="card-header subtask-panel-header"><h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add Subtask</h5></div>
+                <div class="card-body">
+                    <form asp-action="Create" method="post">
+                        <input type="hidden" asp-for="TaskItemId" value="@ViewBag.TaskId" id="currentTaskId" />
+                        <div class="mb-3"><label class="form-label fw-bold">Subtask Content</label><input asp-for="Title" class="form-control" placeholder="Example: Call to confirm..." required /></div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><label class="form-label fw-bold">Estimate (Minutes)</label><input asp-for="EstimatedMinutes" type="number" class="form-control" placeholder="15" min="0" /></div>
+                            <div class="col-6"><label class="form-label fw-bold">Deadline</label><input asp-for="Deadline" type="datetime-local" class="form-control" /></div>
+                        </div>
+                        <div class="d-grid mt-4"><button type="submit" class="btn btn-primary fw-bold"><i class="bi bi-plus-lg me-2"></i>Add Now</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 subtask-panel">
+                <div class="card-header subtask-panel-header d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-list-task me-2"></i>Subtasks</h5></div>
+                <div class="card-body p-0">
+                    @{
+                        int total = subTaskList?.Count ?? 0;
+                        int completed = subTaskList?.Count(s => s.IsCompleted) ?? 0;
+                        int percent = total > 0 ? (int)Math.Round((double)completed / total * 100) : 0;
+                        int totalMinutes = subTaskList?.Sum(s => s.EstimatedMinutes) ?? 0;
+                    }
+                    <div class="px-3 pt-3 pb-2 bg-light border-bottom">
+                        <div class="d-flex justify-content-between align-items-end small fw-bold text-muted mb-2">
+                            <span>Progress @if (totalMinutes > 0) { <span class="badge bg-warning text-dark ms-2"><i class="bi bi-stopwatch"></i> Total: @totalMinutes minutes</span> }</span>
+                            <div class="d-flex align-items-center"><span id="progressText" class="text-primary fs-6 me-3">@percent% (@completed/@total)</span><button type="button" id="btnCompleteParent" class="btn btn-sm btn-success @(percent == 100 ? "" : "d-none")" title="Complete parent task"><i class="bi bi-check2-all me-1"></i>Complete Parent</button></div>
+                        </div>
+                        <div class="progress shadow-sm" style="height: 12px; border-radius: 10px;"><div id="progressBar" class="progress-bar bg-success progress-bar-striped progress-bar-animated" style="width: @percent%;"></div></div>
+                    </div>
+
+                    <ul class="list-group list-group-flush" id="subTaskListContainer" style="max-height: 500px; overflow-y: auto;">
+                        @if (subTaskList != null && subTaskList.Any())
+                        {
+                            foreach (var item in subTaskList)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-start p-3 subtask-item" data-id="@item.Id">
+                                    <i class="bi bi-grip-vertical text-muted drag-handle fs-5 me-2 mt-1" style="cursor: grab;"></i>
+                                    <button type="button" class="btn btn-sm toggle-btn rounded-circle me-3 mt-1 @(item.IsCompleted ? "btn-success" : "btn-outline-secondary")" style="width: 32px; height: 32px; flex-shrink: 0;"><i class="bi @(item.IsCompleted ? "bi-check-lg" : "")"></i></button>
+                                    <div class="flex-grow-1 me-3">
+                                        <div class="subtask-display" style="cursor: pointer;" title="Click to edit">
+                                            <div class="d-flex align-items-center flex-wrap"><span class="fs-5 subtask-title @(item.IsCompleted ? "text-decoration-line-through text-muted" : "fw-medium text-dark")">@item.Title</span><span class="minutes-container">@if (item.EstimatedMinutes > 0) { <span class="badge bg-light text-secondary border ms-2"><i class="bi bi-clock me-1"></i><span class="min-val">@item.EstimatedMinutes</span> min</span> }</span></div>
+                                            @if (isSharedTask)
+                                            {
+                                                <div class="creator-container mt-1"><small class="text-muted"><i class="bi bi-person me-1"></i>Created by @(string.IsNullOrWhiteSpace(item.CreatedByName) ? "Unknown user" : item.CreatedByName)</small></div>
+                                            }
+                                            <div class="deadline-container mt-1">@if (item.Deadline.HasValue) { var isLate = item.Deadline.Value < DateTime.Now && !item.IsCompleted; <small class="@(isLate ? "text-danger fw-bold" : "text-muted")"><i class="bi bi-calendar-event me-1"></i><span class="dl-val">@item.Deadline.Value.ToString("HH:mm MM/dd/yyyy")</span></small> }</div>
+                                            <div class="completed-container mt-1">@if (item.CompletedAt.HasValue) { <small class="text-success"><i class="bi bi-check-circle me-1"></i>Completed: <span class="completed-val">@item.CompletedAt.Value.ToString("HH:mm MM/dd/yyyy")</span></small> }</div>
+                                        </div>
+                                        <div class="subtask-edit d-none bg-light p-3 rounded border shadow-sm mt-2 mb-2">
+                                            <input type="text" class="form-control mb-2 edit-title fw-bold text-primary" value="@item.Title" placeholder="Content..." />
+                                            <div class="row g-2 mb-3"><div class="col-4"><label class="small text-muted mb-1 fw-bold">Estimate (Minutes)</label><input type="number" class="form-control form-control-sm edit-minutes" value="@item.EstimatedMinutes" min="0" /></div><div class="col-8"><label class="small text-muted mb-1 fw-bold">Deadline</label><input type="datetime-local" class="form-control form-control-sm edit-deadline" value="@item.Deadline?.ToString("yyyy-MM-ddTHH:mm")" /></div></div>
+                                            <div class="text-end border-top pt-2"><button type="button" class="btn btn-sm btn-outline-secondary cancel-edit-btn me-2 px-3">Cancel</button><button type="button" class="btn btn-sm btn-primary save-edit-btn px-4 fw-bold">Save</button></div>
+                                        </div>
+                                    </div>
+                                    <div class="action-btns mt-1" style="flex-shrink: 0;"><button type="button" class="btn btn-sm btn-outline-primary edit-trigger-btn me-1"><i class="bi bi-pencil"></i></button><a asp-action="DeleteFast" asp-route-id="@item.Id" asp-route-taskId="@ViewBag.TaskId" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this subtask?');"><i class="bi bi-trash"></i></a></div>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="list-group-item text-center py-5 text-muted empty-state"><i class="bi bi-inbox fs-1 d-block mb-2 text-light"></i><em>No subtasks yet.</em></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('subTaskListContainer');
+    const taskId = document.getElementById('currentTaskId').value;
+    let hasPromptedCompletion = false;
+    if (container.querySelector('.subtask-item')) {
+        new Sortable(container, { handle: '.drag-handle', animation: 150, ghostClass: 'bg-light', onEnd: async function () { const orderedIds = [...container.querySelectorAll('.subtask-item')].map(li => parseInt(li.dataset.id)); await fetch('/SubTasks/ReorderAjax', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderedIds) }); } });
+    }
+    async function submitCompleteParent() { const formData = new FormData(); formData.append('taskId', taskId); const res = await fetch('/SubTasks/CompleteParentTaskAjax', { method: 'POST', body: formData }); const data = await res.json(); if(data.success) { alert('Parent task completed.'); window.location.href = '/Task/Index'; } }
+    function updateProgressBar(isFromToggle = false) { const items = document.querySelectorAll('.subtask-item'); if (!items.length) return; const completed = document.querySelectorAll('.subtask-item .toggle-btn.btn-success').length; const percent = Math.round((completed / items.length) * 100); document.getElementById('progressBar').style.width = percent + '%'; document.getElementById('progressText').innerText = `${percent}% (${completed}/${items.length})`; const btnCompleteParent = document.getElementById('btnCompleteParent'); if (percent === 100) { btnCompleteParent.classList.remove('d-none'); if (isFromToggle && !hasPromptedCompletion) { hasPromptedCompletion = true; setTimeout(async () => { if(confirm('All subtasks are complete. Mark the parent task as done?')) await submitCompleteParent(); }, 300); } } else { btnCompleteParent.classList.add('d-none'); hasPromptedCompletion = false; } }
+    document.getElementById('btnCompleteParent').addEventListener('click', async function() { if(confirm('Complete the parent task?')) await submitCompleteParent(); });
+    container.addEventListener('click', async function (e) {
+        const toggleBtn = e.target.closest('.toggle-btn');
+        if (toggleBtn) {
+            const li = toggleBtn.closest('.subtask-item');
+            const formData = new FormData(); formData.append('id', li.dataset.id);
+            toggleBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            const data = await (await fetch('/SubTasks/ToggleCompleteAjax', { method: 'POST', body: formData })).json();
+            if (data.success) {
+                const titleSpan = li.querySelector('.subtask-title');
+                const completedContainer = li.querySelector('.completed-container');
+                if (data.isCompleted) { toggleBtn.className = 'btn btn-sm toggle-btn rounded-circle me-3 mt-1 btn-success'; toggleBtn.innerHTML = '<i class="bi bi-check-lg"></i>'; titleSpan.classList.add('text-decoration-line-through', 'text-muted'); titleSpan.classList.remove('fw-medium', 'text-dark'); completedContainer.innerHTML = `<small class="text-success"><i class="bi bi-check-circle me-1"></i>Completed: <span class="completed-val">${new Date(data.completedAt).toLocaleString('en-US')}</span></small>`; }
+                else { toggleBtn.className = 'btn btn-sm toggle-btn rounded-circle me-3 mt-1 btn-outline-secondary'; toggleBtn.innerHTML = ''; titleSpan.classList.remove('text-decoration-line-through', 'text-muted'); titleSpan.classList.add('fw-medium', 'text-dark'); completedContainer.innerHTML = ''; }
+                updateProgressBar(true);
+            }
+            return;
+        }
+        const editTrigger = e.target.closest('.edit-trigger-btn');
+        const displayArea = e.target.closest('.subtask-display');
+        if (editTrigger || displayArea) { const li = (editTrigger || displayArea).closest('.subtask-item'); li.querySelector('.subtask-display').classList.add('d-none'); li.querySelector('.action-btns').classList.add('d-none'); li.querySelector('.subtask-edit').classList.remove('d-none'); }
+        if (e.target.closest('.cancel-edit-btn')) { const li = e.target.closest('.subtask-item'); li.querySelector('.subtask-edit').classList.add('d-none'); li.querySelector('.subtask-display').classList.remove('d-none'); li.querySelector('.action-btns').classList.remove('d-none'); }
+        if (e.target.closest('.save-edit-btn')) {
+            const li = e.target.closest('.subtask-item');
+            const formData = new FormData();
+            formData.append('id', li.dataset.id); formData.append('newTitle', li.querySelector('.edit-title').value); formData.append('estimatedMinutes', li.querySelector('.edit-minutes').value || 0); formData.append('deadline', li.querySelector('.edit-deadline').value);
+            const btn = e.target.closest('.save-edit-btn'); btn.innerText = 'Saving...';
+            const data = await (await fetch('/SubTasks/EditInlineAjax', { method: 'POST', body: formData })).json();
+            if (data.success) { li.querySelector('.subtask-title').innerText = data.title; li.querySelector('.minutes-container').innerHTML = data.minutes > 0 ? `<span class="badge bg-light text-secondary border ms-2"><i class="bi bi-clock me-1"></i><span class="min-val">${data.minutes}</span> min</span>` : ''; li.querySelector('.deadline-container').innerHTML = data.hasDeadline ? `<small class="${data.isLate ? 'text-danger fw-bold' : 'text-muted'}"><i class="bi bi-calendar-event me-1"></i><span class="dl-val">${data.deadlineStr}</span></small>` : ''; li.querySelector('.subtask-edit').classList.add('d-none'); li.querySelector('.subtask-display').classList.remove('d-none'); li.querySelector('.action-btns').classList.remove('d-none'); btn.innerText = 'Save'; } else { alert(data.message); btn.innerText = 'Save'; }
+        }
+    });
+});
+</script>
+}
+
+

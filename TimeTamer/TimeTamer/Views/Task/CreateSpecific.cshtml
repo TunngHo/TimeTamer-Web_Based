@@ -1,0 +1,180 @@
+﻿@model TimeTamer.Models.TaskItem
+@{
+    string taskType = ViewBag.TaskType as string ?? "Work";
+    ViewData["Title"] = $"Create Task - {taskType}";
+
+    var goals = ViewBag.Goals as IEnumerable<TimeTamer.Models.Goal> ?? Enumerable.Empty<TimeTamer.Models.Goal>();
+    var isAdmin = User.HasClaim("IsAdmin", "true") || User.IsInRole("Admin");
+    string icon = "bi-briefcase"; string title = "Work"; string color = "primary";
+    if (taskType == "Study") { icon = "bi-book"; title = "Study"; color = "info"; }
+    else if (taskType == "Hangout") { icon = "bi-cup-hot"; title = "Hangout"; color = "warning"; }
+    else if (taskType == "Sport") { icon = "bi-bicycle"; title = "Sport"; color = "success"; }
+    else if (taskType == "Daily") { icon = "bi-house-heart"; title = "Daily"; color = "secondary"; }
+}
+
+<div class="container task-form-page py-4"><div class="task-form-frame"><div class="card shadow-lg border-0 task-form-card">
+                <div class="card-header bg-@color text-white p-4 task-form-header">
+                    <h4 class="mb-0 fw-bold"><i class="bi @icon me-2"></i>Create @title Task</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="CreateSpecific" method="post" enctype="multipart/form-data" id="taskForm">
+                        <input type="hidden" name="taskType" value="@taskType" />
+
+                        <h5 class="section-title">Basic Information</h5>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Title</label>
+                            <input asp-for="Title" class="form-control form-control-lg" placeholder="Enter task name..." required />
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Start Time</label>
+                                <input asp-for="StartTime" class="form-control" type="datetime-local" value="@ViewBag.DefaultStart" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Deadline</label>
+                                <input asp-for="Deadline" class="form-control" type="datetime-local" value="@ViewBag.DefaultDeadline" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Priority</label>
+                                <select asp-for="PriorityLevel" class="form-select">
+                                    <option value="0">Low</option>
+                                    <option value="1" selected>Medium</option>
+                                    <option value="2">High</option>
+                                    <option value="3">Critical</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Task Images</label>
+                                <input type="file" name="imageFiles" class="form-control" accept="image/*" multiple />
+                            </div>
+                        </div>
+                        @if (isAdmin)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Implementer</label>
+                                <input asp-for="Implementer" class="form-control" placeholder="Person responsible" />
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Goal</label>
+                            <select asp-for="GoalId" class="form-select"><option value="">No linked goal</option>@foreach (var goal in goals) { <option value="@goal.Id">@goal.Title</option> }</select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea asp-for="Description" class="form-control" rows="2" placeholder="Add notes..."></textarea>
+                        </div>
+
+                        <h5 class="section-title text-@color">Details (@title)</h5>
+                        <div class="task-detail-panel">
+                            @if (taskType == "Work")
+                            {
+                                <div class="mb-3"><label class="form-label fw-bold">Project / Module</label><input type="text" name="meta_ProjectName" class="form-control" placeholder="Project name" /></div>
+                                <div class="mb-3 dynamic-list-container" data-placeholder="Related person..."><label class="form-label fw-bold">Collaborators</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-primary mt-1 add-item-btn"><i class="bi bi-plus-circle"></i> Add person</button><input type="hidden" name="meta_Collaborators" class="real-input" value="" /></div>
+                                <div class="mb-3 dynamic-list-container" data-placeholder="Current blocker..." data-input-class="text-danger fw-bold border-danger"><label class="form-label fw-bold text-danger">Blockers</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-danger mt-1 add-item-btn"><i class="bi bi-plus-circle"></i> Add blocker</button><input type="hidden" name="meta_Blocker" class="real-input" value="" /></div>
+                            }
+                            else if (taskType == "Study")
+                            {
+                                <div class="mb-3 dynamic-paired-container" data-placeholder-1="Goal" data-placeholder-2="Resource link"><label class="form-label fw-bold">Learning Path & Resources</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-info mt-2 add-item-btn"><i class="bi bi-plus-circle"></i> Add goal</button><input type="hidden" name="meta_Target" class="real-input-1" value="" /><input type="hidden" name="meta_Resources" class="real-input-2" value="" /></div>
+                            }
+                            else if (taskType == "Hangout")
+                            {
+                                <div class="mb-3 dynamic-list-container" data-placeholder="Location..."><label class="form-label fw-bold">Locations</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-primary mt-1 add-item-btn"><i class="bi bi-plus-circle"></i> Add location</button><input type="hidden" name="meta_Location" class="real-input" value="" /></div>
+                                <div class="mb-3"><label class="form-label fw-bold">Estimated Budget</label><input type="text" name="meta_Budget" class="form-control" placeholder="Example: 200,000 VND" /></div>
+                                <div class="mb-3 dynamic-list-container" data-placeholder="Friend name..."><label class="form-label fw-bold">Participants</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-primary mt-1 add-item-btn"><i class="bi bi-plus-circle"></i> Add person</button><input type="hidden" name="meta_Friends" class="real-input" value="" /></div>
+                            }
+                            else if (taskType == "Sport")
+                            {
+                                <div class="mb-3 dynamic-paired-container" data-placeholder-1="Exercise" data-placeholder-2="Goal"><label class="form-label fw-bold">Training Plan</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-success mt-2 add-item-btn"><i class="bi bi-plus-circle"></i> Add exercise</button><input type="hidden" name="meta_ExerciseType" class="real-input-1" value="" /><input type="hidden" name="meta_Goal" class="real-input-2" value="" /></div>
+                            }
+                            else if (taskType == "Daily")
+                            {
+                                <div class="mb-3 dynamic-list-container" data-placeholder="Example: Buy eggs"><label class="form-label fw-bold">Checklist</label><div class="items-wrapper"></div><button type="button" class="btn btn-sm btn-outline-success mt-1 add-item-btn"><i class="bi bi-plus-circle"></i> Add item</button><input type="hidden" name="meta_Checklist" class="real-input" value="" /></div>
+                                <div class="mb-3"><label class="form-label fw-bold">Repeat Cycle</label><select name="meta_Recurring" class="form-select"><option value="No">One time</option><option value="Daily">Daily</option><option value="Weekly">Weekly</option></select></div>
+                            }
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a asp-action="Create" class="btn btn-outline-secondary px-4"><i class="bi bi-arrow-left"></i> Choose another type</a>
+                            <button type="submit" class="btn btn-@color px-5 fw-bold"><i class="bi bi-save me-1"></i> Save Task</button>
+                        </div>
+                    </form>
+                </div></div></div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const containers = document.querySelectorAll('.dynamic-list-container');
+    containers.forEach(container => {
+        const realInput = container.querySelector('.real-input');
+        const wrapper = container.querySelector('.items-wrapper');
+        const addBtn = container.querySelector('.add-item-btn');
+        const placeholderText = container.dataset.placeholder || '';
+        const extraClass = container.dataset.inputClass || '';
+        wrapper.appendChild(createRow(''));
+        addBtn.addEventListener('click', () => wrapper.appendChild(createRow('')));
+        function createRow(val) {
+            const row = document.createElement('div');
+            row.className = 'd-flex mb-2 align-items-center';
+            row.innerHTML = `<input type="text" class="form-control me-2 ${extraClass}" value="${val}" placeholder="${placeholderText}" /><button type="button" class="btn btn-outline-danger btn-sm rounded-circle" title="Remove row"><i class="bi bi-x"></i></button>`;
+            row.querySelector('button').addEventListener('click', () => row.remove());
+            return row;
+        }
+    });
+
+    const pairedContainers = document.querySelectorAll('.dynamic-paired-container');
+    pairedContainers.forEach(container => {
+        const wrapper = container.querySelector('.items-wrapper');
+        const addBtn = container.querySelector('.add-item-btn');
+        const p1 = container.dataset.placeholder1 || 'Info 1';
+        const p2 = container.dataset.placeholder2 || 'Info 2';
+        wrapper.appendChild(createPairedRow('', '', p1, p2));
+        addBtn.addEventListener('click', () => wrapper.appendChild(createPairedRow('', '', p1, p2)));
+        function createPairedRow(v1, v2, ph1, ph2) {
+            const row = document.createElement('div');
+            row.className = 'row mb-2 align-items-center paired-row gx-2';
+            row.innerHTML = `<div class="col-5"><input type="text" class="form-control input-1" value="${v1}" placeholder="${ph1}" /></div><div class="col-6"><input type="text" class="form-control input-2" value="${v2}" placeholder="${ph2}" /></div><div class="col-1 text-end"><button type="button" class="btn btn-outline-danger btn-sm rounded-circle" title="Remove row"><i class="bi bi-x"></i></button></div>`;
+            row.querySelector('button').addEventListener('click', () => row.remove());
+            return row;
+        }
+    });
+
+    document.getElementById('taskForm').addEventListener('submit', function() {
+        containers.forEach(container => {
+            const realInput = container.querySelector('.real-input');
+            const values = Array.from(container.querySelectorAll('.items-wrapper input[type="text"]')).map(input => input.value.trim()).filter(Boolean);
+            realInput.value = values.join(', ');
+        });
+        pairedContainers.forEach(container => {
+            const realInput1 = container.querySelector('.real-input-1');
+            const realInput2 = container.querySelector('.real-input-2');
+            const arr1 = [];
+            const arr2 = [];
+            container.querySelectorAll('.paired-row').forEach(row => {
+                const v1 = row.querySelector('.input-1').value.trim();
+                const v2 = row.querySelector('.input-2').value.trim();
+                if (v1 || v2) { arr1.push(v1 || '-'); arr2.push(v2 || '-'); }
+            });
+            realInput1.value = arr1.join(', ');
+            realInput2.value = arr2.join(', ');
+        });
+    });
+});
+</script>
+}
+
+
+
+
+
+
+
+
+
+
+

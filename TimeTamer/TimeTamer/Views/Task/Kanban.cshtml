@@ -1,0 +1,239 @@
+﻿@model IEnumerable<TimeTamer.Models.TaskItem>
+@{
+    ViewData["Title"] = "Kanban Board";
+    var pendingTasks = Model.Where(t => t.Status == "Pending").ToList();
+    var processTasks = Model.Where(t => t.Status == "Process").ToList();
+    var completedTasks = Model.Where(t => t.Status == "Completed").ToList();
+}
+
+<style>
+    .kanban-col { background-color: #f4f5f7; border-radius: 8px; padding: 15px; min-height: 70vh; }
+    .kanban-card { background-color: #fff; border-radius: 6px; padding: 12px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); cursor: grab; border-left: 4px solid transparent; }
+    .kanban-card-locked { cursor: not-allowed; opacity: 0.72; }
+    .kanban-card:active { cursor: grabbing; }
+    .sortable-ghost { opacity: 0.4; background-color: #e9ecef; }
+</style>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between mb-4">
+        <h2 class="text-primary fw-bold"><i class="bi bi-kanban"></i> Project Progress</h2>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add Task</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4"><h5 class="text-secondary fw-bold mb-3"><i class="bi bi-inbox"></i> To Do (@pendingTasks.Count)</h5><div class="kanban-col" id="col-Pending" data-status="Pending">@foreach (var item in pendingTasks) { await Html.RenderPartialAsync("_KanbanCard", item); }</div></div>
+        <div class="col-md-4"><h5 class="text-primary fw-bold mb-3"><i class="bi bi-gear-wide-connected"></i> In Progress (@processTasks.Count)</h5><div class="kanban-col" id="col-Process" data-status="Process">@foreach (var item in processTasks) { await Html.RenderPartialAsync("_KanbanCard", item); }</div></div>
+        <div class="col-md-4"><h5 class="text-success fw-bold mb-3"><i class="bi bi-check2-all"></i> Done (@completedTasks.Count)</h5><div class="kanban-col" id="col-Completed" data-status="Completed">@foreach (var item in completedTasks) { await Html.RenderPartialAsync("_KanbanCard", item); }</div></div>
+    </div>
+</div>
+
+<div class="modal fade" id="kanbanDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white"><h5 class="modal-title">Details</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body p-4">
+                <h3 id="kbTitle" class="text-primary fw-bold mb-4"></h3>
+                <div class="row g-3 mb-4 border-bottom pb-3">
+                    <div class="col-4"><span class="small text-muted fw-bold">CATEGORY</span><div id="kbType" class="fw-bold"></div></div>
+                    <div class="col-4"><span class="small text-muted fw-bold">DEADLINE</span><div id="kbDeadline"></div></div>
+                    <div class="col-4"><span class="small text-muted fw-bold">PRIORITY</span><div id="kbPriority"></div></div>
+                </div>
+                <div class="mb-4"><p id="kbDesc" class="text-secondary"></p></div>
+                <div class="bg-light p-3 rounded"><span class="small text-info fw-bold mb-2 d-block"><i class="bi bi-stars"></i> SPECIFIC DATA</span><div id="kbMeta" class="row g-3"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="kanbanDeadlineModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Start Processing</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="kanbanDeadlineHelp" class="text-muted mb-3">Choose a deadline before moving this task to Process. Start time will be set to now.</p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="kanbanDeadlineMode" id="kanbanDeadlineSpecific" value="specific" checked>
+                    <label class="form-check-label fw-semibold" for="kanbanDeadlineSpecific">Specific time</label>
+                </div>
+                <input type="datetime-local" id="kanbanDeadlineValue" class="form-control mb-3" />
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="kanbanDeadlineMode" id="kanbanDeadlineNone" value="none">
+                    <label class="form-check-label fw-semibold" for="kanbanDeadlineNone">No deadline</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmKanbanDeadline" class="btn btn-primary">Start</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+function detailKeysFor(type) {
+    const map = {
+        Work: ['ProjectName', 'Collaborators', 'Blocker'],
+        Study: ['Target', 'Resources'],
+        Hangout: ['Location', 'Budget', 'Friends'],
+        Sport: ['ExerciseType', 'Goal'],
+        Daily: ['Checklist', 'Recurring']
+    };
+    return map[type] || [];
+}
+
+function detailLabel(key) {
+    const labels = {
+        ProjectName: 'Project / Module',
+        Collaborators: 'Collaborators',
+        Blocker: 'Blockers',
+        Target: 'Learning Targets',
+        Resources: 'Resources',
+        Location: 'Locations',
+        Budget: 'Estimated Budget',
+        Friends: 'Participants',
+        ExerciseType: 'Exercise Type',
+        Goal: 'Goal',
+        Checklist: 'Checklist',
+        Recurring: 'Repeat Cycle'
+    };
+    return labels[key] || key;
+}
+
+function renderTypedDetails(type, rawMeta) {
+    const keys = detailKeysFor(type);
+    const parts = keys
+        .filter(key => rawMeta[key])
+        .map(key => `<div class="col-6"><small class="text-secondary fw-bold">${detailLabel(key)}</small><div>${rawMeta[key]}</div></div>`);
+    return parts.join('') || '<em>None</em>';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const deadlineModalEl = document.getElementById('kanbanDeadlineModal');
+    const deadlineModal = deadlineModalEl ? new bootstrap.Modal(deadlineModalEl) : null;
+    let pendingMove = null;
+    let deadlineAction = 'process';
+
+    function revertMove(move) {
+        if (!move) return;
+        move.from.insertBefore(move.item, move.from.children[move.oldIndex] || null);
+    }
+
+    function configureDeadlineModal(action) {
+        deadlineAction = action;
+        const title = deadlineModalEl?.querySelector('.modal-title');
+        const help = document.getElementById('kanbanDeadlineHelp');
+        const button = document.getElementById('confirmKanbanDeadline');
+        if (action === 'pending') {
+            if (title) title.textContent = 'Reset Deadline';
+            if (help) help.textContent = 'Choose a new deadline for this task, or mark it as no deadline.';
+            if (button) button.textContent = 'Save';
+        } else {
+            if (title) title.textContent = 'Start Processing';
+            if (help) help.textContent = 'Choose a deadline before moving this task to Process. Start time will be set to now.';
+            if (button) button.textContent = 'Start';
+        }
+        document.getElementById('kanbanDeadlineSpecific').checked = true;
+        document.getElementById('kanbanDeadlineValue').value = '';
+    }
+
+    function submitMove(move, extra = {}) {
+        const fd = new FormData();
+        fd.append('id', move.taskId);
+        fd.append('newStatus', move.newStatus);
+        if (extra.noDeadline) fd.append('noDeadline', 'true');
+        if (extra.deadline) fd.append('deadline', extra.deadline);
+        if (extra.resetDeadline) fd.append('resetDeadline', 'true');
+
+        fetch('/Task/UpdateStatus', { method: 'POST', body: fd }).then(response => {
+            if (!response.ok) {
+                revertMove(move);
+                alert('Could not update status.');
+                return;
+            }
+            move.item.dataset.status = move.newStatus;
+        }).catch(() => revertMove(move));
+    }
+
+    deadlineModalEl?.addEventListener('hidden.bs.modal', () => {
+        if (pendingMove) {
+            revertMove(pendingMove);
+            pendingMove = null;
+        }
+    });
+
+    document.getElementById('confirmKanbanDeadline')?.addEventListener('click', () => {
+        if (!pendingMove) return;
+        const noDeadline = document.getElementById('kanbanDeadlineNone').checked;
+        const deadline = document.getElementById('kanbanDeadlineValue').value;
+        if (!noDeadline && !deadline) {
+            alert('Please choose a deadline or select No deadline.');
+            return;
+        }
+        const move = pendingMove;
+        const extra = { noDeadline, deadline };
+        if (deadlineAction === 'pending') extra.resetDeadline = true;
+        pendingMove = null;
+        deadlineModal?.hide();
+        submitMove(move, extra);
+    });
+
+    ['col-Pending', 'col-Process', 'col-Completed'].forEach(colId => {
+        new Sortable(document.getElementById(colId), {
+            group: 'kanban', animation: 150, ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                const taskId = evt.item.dataset.id;
+                const oldStatus = evt.from.dataset.status;
+                const newStatus = evt.to.dataset.status;
+                if (newStatus === oldStatus) return;
+                const move = { item: evt.item, from: evt.from, oldIndex: evt.oldIndex, taskId, newStatus };
+                if (evt.item.dataset.locked === 'true') {
+                    revertMove(move);
+                    alert('Completed assigned tasks are locked. Only admin can change their status.');
+                    return;
+                }
+                if (newStatus === 'Process') {
+                    pendingMove = move;
+                    configureDeadlineModal('process');
+                    deadlineModal?.show();
+                    return;
+                }
+                if (oldStatus === 'Process' && newStatus === 'Pending') {
+                    if (confirm('Do you want to reset this task deadline?')) {
+                        pendingMove = move;
+                        configureDeadlineModal('pending');
+                        deadlineModal?.show();
+                        return;
+                    }
+                }
+                submitMove(move);
+            }
+        });
+    });
+
+    let modal = null;
+    document.querySelectorAll('.kanban-card').forEach(card => {
+        let dragging = false;
+        card.addEventListener('mousedown', () => dragging = false);
+        card.addEventListener('mousemove', () => dragging = true);
+        card.addEventListener('mouseup', function (e) {
+            if (dragging || e.target.closest('.kb-actions')) return;
+            if (!modal) modal = new bootstrap.Modal(document.getElementById('kanbanDetailModal'));
+            document.getElementById('kbTitle').textContent = this.dataset.title;
+            document.getElementById('kbType').textContent = this.dataset.type;
+            document.getElementById('kbDeadline').textContent = this.dataset.deadline;
+            document.getElementById('kbPriority').textContent = this.dataset.priority;
+            document.getElementById('kbDesc').textContent = this.dataset.desc;
+            const meta = JSON.parse(this.dataset.meta || '{}');
+            document.getElementById('kbMeta').innerHTML = renderTypedDetails(this.dataset.type, meta);
+            modal.show();
+        });
+    });
+});
+</script>
+}
+

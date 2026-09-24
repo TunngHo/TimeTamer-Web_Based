@@ -1,0 +1,39 @@
+﻿@{
+    ViewData["Title"] = "Choose Task Category";
+}
+
+@functions {
+    private static object[] TaskTypes() => new object[]
+    {
+        new { Type = "Work", Name = "Work", Icon = "bi-briefcase-fill", Color = "#2563eb", Desc = "Projects, meetings, reports, and office deadlines." },
+        new { Type = "Study", Name = "Study", Icon = "bi-book-half", Color = "#0891b2", Desc = "Exams, research, languages, and new skills." },
+        new { Type = "Hangout", Name = "Hangout", Icon = "bi-cup-hot-fill", Color = "#d97706", Desc = "Coffee, travel, friends, and social plans." },
+        new { Type = "Sport", Name = "Sport", Icon = "bi-bicycle", Color = "#16a34a", Desc = "Gym, running, football, and health routines." },
+        new { Type = "Daily", Name = "Daily", Icon = "bi-house-heart-fill", Color = "#64748b", Desc = "Cleaning, shopping, and household chores." }
+    };
+}
+
+<div class="container task-create-shell py-4">
+    <div class="task-page-hero">
+        <div>
+            <span class="page-kicker">New Task</span>
+            <h1>Choose a task type</h1>
+            <p>@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name), start with the context so TimeTamer can show the right fields and goals.</p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-primary"><i class="bi bi-arrow-left me-2"></i>Task List</a>
+    </div>
+
+    <div class="task-type-grid">
+        @foreach (dynamic item in TaskTypes())
+        {
+            <a asp-action="CreateSpecific" asp-route-type="@item.Type" class="task-type-card">
+                <span class="task-type-icon" style="--accent:@item.Color">
+                    <i class="bi @item.Icon"></i>
+                </span>
+                <span class="task-type-name">@item.Name</span>
+                <span class="task-type-desc">@item.Desc</span>
+                <span class="task-type-arrow"><i class="bi bi-arrow-right"></i></span>
+            </a>
+        }
+    </div>
+</div>

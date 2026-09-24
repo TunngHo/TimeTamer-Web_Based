@@ -1,0 +1,97 @@
+﻿@model TimeTamer.Models.UserMessageCenterViewModel
+@{
+    ViewData["Title"] = "Messages";
+    var isAdmin = ViewBag.IsAdmin as bool? == true;
+    var managedUsers = ViewBag.ManagedUsers as IEnumerable<TimeTamer.Models.AdminUserLink> ?? Enumerable.Empty<TimeTamer.Models.AdminUserLink>();
+    var selectedUserId = ViewBag.SelectedUserId as int?;
+    var hasApprovedAdmin = ViewBag.HasApprovedAdmin as bool? == true;
+}
+
+<div class="admin-page message-center">
+    <div class="admin-hero">
+        <div>
+            <p class="admin-kicker">Support</p>
+            <h1>@(isAdmin ? "Messages with Users" : "Messages with Admin")</h1>
+            <p class="text-muted mb-0">@(isAdmin ? "Choose an approved user and send a direct message." : "Ask for support, receive admin replies, and keep your achievement history in one place.")</p>
+        </div>
+        @if (!isAdmin)
+        {
+            <a class="btn btn-outline-primary" asp-controller="Achievements" asp-action="Index"><i class="bi bi-award me-1"></i> Achievements</a>
+        }
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="panel-card">
+                <h2>Send Message</h2>
+                @if (TempData["MessageError"] != null) { <div class="alert alert-warning">@TempData["MessageError"]</div> }
+                @if (!isAdmin && !hasApprovedAdmin)
+                {
+                    <div class="alert alert-info">You can send messages after approving at least one admin request.</div>
+                }
+                <form asp-action="Send" method="post" class="admin-compose">
+                    @Html.AntiForgeryToken()
+                    @if (isAdmin)
+                    {
+                        <label class="form-label">User</label>
+                        <select class="form-select" name="targetUserId" required onchange="window.location.href='@Url.Action("Index", "Messages")?userId=' + this.value">
+                            @foreach (var link in managedUsers)
+                            {
+                                var name = string.IsNullOrWhiteSpace(link.User?.FullName) ? link.User?.Username : link.User?.FullName;
+                                <option value="@link.UserId" selected="@(selectedUserId == link.UserId)">@name (@link.User?.UserCode)</option>
+                            }
+                        </select>
+                    }
+                    <textarea class="form-control" name="body" rows="6" placeholder="@(isAdmin ? "Write your message to the selected user" : "Write your message to the admin")" required maxlength="2000" disabled="@(!isAdmin && !hasApprovedAdmin)"></textarea>
+                    <button class="btn btn-primary" type="submit" disabled="@(!isAdmin && !hasApprovedAdmin)"><i class="bi bi-send me-1"></i> Send</button>
+                </form>
+            </div>
+
+            @if (!isAdmin)
+            {
+                <div class="panel-card mt-4">
+                    <h2>Recent Achievements</h2>
+                    @if (!Model.Achievements.Any())
+                    {
+                        <p class="text-muted mb-0">No achievements yet.</p>
+                    }
+                    else
+                    {
+                        @foreach (var achievement in Model.Achievements)
+                        {
+                            <div class="achievement-card compact readonly">
+                                <div class="achievement-icon"><i class="bi bi-@achievement.Icon"></i></div>
+                                <div>
+                                    <strong>@achievement.Title</strong>
+                                    <p>@achievement.Description</p>
+                                    <small>Awarded by @(achievement.AwardedByAdmin?.Username ?? "Admin")</small>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+        <div class="col-lg-7">
+            <div class="panel-card">
+                <h2>Conversation</h2>
+                @if (!Model.Messages.Any())
+                {
+                    <p class="text-muted mb-0">No messages yet.</p>
+                }
+                else
+                {
+                    @foreach (var message in Model.Messages)
+                    {
+                        <div class="message-bubble @(message.IsFromAdmin ? "from-admin" : "from-user")">
+                            <div class="message-meta">@(message.IsFromAdmin ? "Admin" : (isAdmin ? (string.IsNullOrWhiteSpace(message.SenderUser?.FullName) ? (message.SenderUser?.Username ?? "User") : message.SenderUser.FullName) : "You")) · @message.SentAt.ToString("MM/dd/yyyy HH:mm")</div>
+                            <p>@message.Body</p>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+

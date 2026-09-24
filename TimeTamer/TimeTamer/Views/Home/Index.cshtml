@@ -1,0 +1,77 @@
+﻿@using TimeTamer.Models
+@{
+    ViewData["Title"] = "Dashboard";
+    var nextTasks = ViewBag.NextTasks as IEnumerable<TaskItem> ?? Enumerable.Empty<TaskItem>();
+    var goals = ViewBag.Goals as IEnumerable<Goal> ?? Enumerable.Empty<Goal>();
+    var reminders = ViewBag.Reminders as IEnumerable<Reminder> ?? Enumerable.Empty<Reminder>();
+    var typeStats = ViewBag.TypeStats as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+}
+
+<div class="container-fluid mt-4 dashboard-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <span class="text-uppercase text-primary fw-bold small">TimeTamer Dashboard</span>
+            <h1 class="fw-bold mb-0">Hello, @ViewBag.DisplayName</h1>
+            <p class="text-muted mb-0">Your work, time, goals, and habits in one place.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-controller="Task" asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Task</a>
+            <a asp-controller="Account" asp-action="Logout" class="btn btn-outline-danger">Logout</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-2"><a asp-controller="Task" asp-action="Index" asp-route-scope="open" class="metric-card metric-link"><span>Open</span><strong>@ViewBag.TaskCount</strong></a></div>
+        <div class="col-md-2"><a asp-controller="Task" asp-action="Index" asp-route-status="Completed" class="metric-card metric-link"><span>Completed</span><strong>@ViewBag.CompletedCount</strong></a></div>
+        <div class="col-md-2"><a asp-controller="Task" asp-action="Index" asp-route-scope="today" class="metric-card metric-link"><span>Today</span><strong>@ViewBag.TodayCount</strong></a></div>
+        <div class="col-md-2"><a asp-controller="Task" asp-action="Index" asp-route-scope="overdue" class="metric-card metric-link danger"><span>Overdue</span><strong>@ViewBag.OverdueCount</strong></a></div>
+        <div class="col-md-2"><a asp-controller="Task" asp-action="Index" asp-route-scope="upcoming" class="metric-card metric-link"><span>Upcoming</span><strong>@ViewBag.UpcomingCount</strong></a></div>
+        <div class="col-md-2"><a asp-controller="Habits" asp-action="Index" class="metric-card metric-link success"><span>Habits</span><strong>@ViewBag.HabitDoneToday/@ViewBag.HabitTotal</strong></a></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="panel-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3"><h2>Next Tasks</h2><a asp-controller="Task" asp-action="Index" class="btn btn-sm btn-outline-primary">View all</a></div>
+                @foreach (var task in nextTasks)
+                {
+                    <div class="list-line">
+                        <div><strong>@task.Title</strong><div class="small text-muted">@(task.Deadline?.ToString("MM/dd/yyyy HH:mm") ?? "No deadline")</div></div>
+                        <span class="badge bg-secondary">@task.Status</span>
+                    </div>
+                }
+                @if (!nextTasks.Any()) { <p class="text-muted mb-0">No open tasks.</p> }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="panel-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3"><h2>Active Goals</h2><a asp-controller="Goals" asp-action="Index" class="btn btn-sm btn-outline-primary">Manage</a></div>
+                @foreach (var goal in goals)
+                {
+                    var total = goal.Tasks.Count;
+                    var done = goal.Tasks.Count(t => t.IsCompleted);
+                    var percent = total == 0 ? 0 : (int)Math.Round(done * 100.0 / total);
+                    <div class="mb-3"><div class="d-flex justify-content-between"><strong>@goal.Title</strong><span>@percent%</span></div><div class="progress"><div class="progress-bar" style="width:@percent%"></div></div></div>
+                }
+                @if (!goals.Any()) { <p class="text-muted mb-0">No active goals yet.</p> }
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="panel-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3"><h2>Reminders</h2><a asp-controller="Reminders" asp-action="Index" class="btn btn-sm btn-outline-primary">Open</a></div>
+                @foreach (var reminder in reminders)
+                {
+                    <div class="small border-bottom py-2"><strong>@reminder.Message</strong><div class="text-muted">@reminder.RemindAt.ToString("MM/dd HH:mm")</div></div>
+                }
+                @if (!reminders.Any()) { <p class="text-muted mb-0">No upcoming reminders.</p> }
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-3"><a asp-controller="Calendar" asp-action="Index" class="quick-tile"><i class="bi bi-calendar3"></i><span>Calendar</span></a></div>
+        <div class="col-md-3"><a asp-controller="Habits" asp-action="Index" class="quick-tile"><i class="bi bi-check2-square"></i><span>Habits</span></a></div>
+        <div class="col-md-3"><a asp-controller="Goals" asp-action="Index" class="quick-tile"><i class="bi bi-bullseye"></i><span>Goals</span></a></div>
+    </div>
+</div>
+

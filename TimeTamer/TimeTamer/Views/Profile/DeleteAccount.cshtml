@@ -1,0 +1,27 @@
+﻿@model TimeTamer.Models.DeleteAccountViewModel
+@{
+    ViewData["Title"] = "Delete Account";
+}
+
+<div class="container profile-shell py-4">
+    <div class="profile-danger-card">
+        <div class="profile-danger-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <div>
+            <span class="profile-kicker text-danger">Permanent Action</span>
+            <h1>Delete Account</h1>
+            <p>This will permanently remove your account, tasks, subtasks, reminders, categories, goals, and habits.</p>
+        </div>
+        <form asp-action="DeleteAccount" method="post" class="mt-3">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <label asp-for="CurrentPassword" class="form-label">Current Password</label>
+            <input asp-for="CurrentPassword" class="form-control form-control-lg" autocomplete="current-password" />
+            <span asp-validation-for="CurrentPassword" class="text-danger"></span>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this account permanently?');"><i class="bi bi-person-x me-2"></i>Delete Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts { @{await Html.RenderPartialAsync("_ValidationScriptsPartial");} }

@@ -1,0 +1,15 @@
+﻿@model TimeTamer.Models.PaginatedList<TimeTamer.Models.TaskItem>
+@{
+    ViewData["Title"] = "Trash";
+}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4"><h1 class="fw-bold text-danger">Trash</h1><a asp-action="Index" class="btn btn-outline-primary">Back to Tasks</a></div>
+    <div class="panel-card">
+        @foreach (var item in Model)
+        {
+            <div class="list-line"><div><strong>@item.Title</strong><div class="small text-muted">Deleted @(item.DeletedAt?.ToString("MM/dd/yyyy HH:mm") ?? "-")</div></div><div class="d-flex gap-2"><form asp-action="Restore" method="post"><input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm btn-success" type="submit">Restore</button></form><form asp-action="PermanentlyDelete" method="post" onsubmit="return confirm('Permanently delete this task?')"><input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm btn-outline-danger" type="submit">Delete forever</button></form></div></div>
+        }
+        @if (!Model.Any()) { <p class="text-muted mb-0">Trash is empty.</p> }
+    </div>
+    @await Html.PartialAsync("_Pagination", Model)
+</div>

@@ -1,0 +1,87 @@
+﻿@model TimeTamer.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "Sign up";
+}
+
+<div class="auth-split-shell auth-signup" data-auth-page>
+    <section class="auth-split-card">
+        <div class="auth-advice-panel">
+            <div class="auth-logo-mark">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <span class="auth-visual-kicker">Secure start</span>
+            <h2>Create a safer account</h2>
+            <ul class="auth-advice-list">
+                <li><i class="bi bi-shield-check"></i><span>Use a password that is unique to TimeTamer.</span></li>
+                <li><i class="bi bi-key"></i><span>Mix letters, numbers, and symbols for stronger protection.</span></li>
+                <li><i class="bi bi-envelope-check"></i><span>Use an email you can access for OTP recovery.</span></li>
+            </ul>
+        </div>
+
+        <div class="auth-form-panel">
+            <div class="auth-panel-content">
+                <span class="auth-badge">TimeTamer</span>
+                <h1>Sign up</h1>
+                <p class="auth-lede">Create your workspace for tasks, focus sessions, habits, goals, and reminders.</p>
+
+                @if (ViewBag.Error != null) { <div class="alert alert-danger">@ViewBag.Error</div> }
+
+                <form asp-action="Register" method="post" class="auth-form">
+                    <div asp-validation-summary="ModelOnly" class="text-danger validation-summary"></div>
+                    <div class="form-group">
+                        <label asp-for="Username">Username</label>
+                        <input asp-for="Username" class="form-control" autocomplete="username" />
+                        <span asp-validation-for="Username" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="Email">Email</label>
+                        <input asp-for="Email" class="form-control" autocomplete="email" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="Role">Account role</label>
+                        <select asp-for="Role" class="form-select">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                        <span asp-validation-for="Role" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="Password">Password</label>
+                        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="ConfirmPassword">Confirm password</label>
+                        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn auth-submit">Sign up</button>
+                </form>
+
+                <div class="auth-helper-row">
+                    <span class="auth-muted">Already have an account?</span>
+                    <a asp-action="Login" class="auth-inline-switch" data-auth-slide="right">Sign in</a>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (() => {
+            document.querySelectorAll('[data-auth-slide]').forEach(link => {
+                link.addEventListener('click', event => {
+                    event.preventDefault();
+                    document.querySelector('.auth-split-card')?.classList.add('auth-slide-out-right');
+                    window.setTimeout(() => { window.location.href = link.href; }, 360);
+                });
+            });
+        })();
+    </script>
+}
+
+
+

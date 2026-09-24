@@ -1,0 +1,16 @@
+﻿@model TimeTamer.Models.PaginatedList<TimeTamer.Models.TaskItem>
+@{
+    ViewData["Title"] = "Archive";
+}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4"><h1 class="fw-bold text-primary">Archive</h1><a asp-action="Index" class="btn btn-outline-primary">Back to Tasks</a></div>
+    <div class="panel-card">
+        @foreach (var item in Model)
+        {
+            <div class="list-line"><div><strong>@item.Title</strong><div class="small text-muted">Archived @(item.ArchivedAt?.ToString("MM/dd/yyyy HH:mm") ?? "-")</div></div><form asp-action="Restore" method="post"><input type="hidden" name="id" value="@item.Id" /><button class="btn btn-sm btn-success" type="submit">Restore</button></form></div>
+        }
+        @if (!Model.Any()) { <p class="text-muted mb-0">No archived tasks.</p> }
+    </div>
+    @await Html.PartialAsync("_Pagination", Model)
+</div>
+

@@ -1,0 +1,41 @@
+﻿@model TimeTamer.Models.IPaginatedList
+@{
+    var routeValues = Context.Request.Query
+        .Where(item => !string.Equals(item.Key, "page", StringComparison.OrdinalIgnoreCase))
+        .ToDictionary(item => item.Key, item => item.Value.ToString());
+
+    Dictionary<string, string> PageRoute(int page)
+    {
+        var values = new Dictionary<string, string>(routeValues);
+        values["page"] = page.ToString();
+        values["pageSize"] = Model.PageSize.ToString();
+        return values;
+    }
+
+    var start = Math.Max(1, Model.PageIndex - 2);
+    var end = Math.Min(Model.TotalPages, Model.PageIndex + 2);
+}
+
+@if (Model.TotalItems > Model.PageSize)
+{
+    <nav class="pagination-wrap d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3" aria-label="Pagination">
+        <div class="text-muted small">
+            Page <strong>@Model.PageIndex</strong> of <strong>@Model.TotalPages</strong>
+            <span class="ms-2">(@Model.TotalItems items)</span>
+        </div>
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                <a class="page-link" asp-all-route-data="PageRoute(Model.PageIndex - 1)">Previous</a>
+            </li>
+            @for (var i = start; i <= end; i++)
+            {
+                <li class="page-item @(i == Model.PageIndex ? "active" : "")">
+                    <a class="page-link" asp-all-route-data="PageRoute(i)">@i</a>
+                </li>
+            }
+            <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                <a class="page-link" asp-all-route-data="PageRoute(Model.PageIndex + 1)">Next</a>
+            </li>
+        </ul>
+    </nav>
+}

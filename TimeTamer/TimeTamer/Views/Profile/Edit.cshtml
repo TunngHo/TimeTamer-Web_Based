@@ -1,0 +1,44 @@
+﻿@model TimeTamer.Models.ProfileEditViewModel
+@{
+    ViewData["Title"] = "Edit Profile";
+    var avatarUrl = Model.CurrentAvatarUrl ?? "https://via.placeholder.com/180";
+}
+
+<div class="container profile-shell py-4">
+    <div class="profile-form-card">
+        <div class="profile-form-aside">
+            <img src="@avatarUrl" class="profile-avatar-lg" alt="Current avatar" />
+            <h1>Edit Profile</h1>
+            <p>Update your display information. Email changes are disabled from this page.</p>
+            <div class="profile-locked-email"><i class="bi bi-lock-fill me-2"></i>@Model.Email</div>
+        </div>
+
+        <form asp-action="Edit" method="post" enctype="multipart/form-data" class="profile-form-main">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FullName" class="form-label">Full Name</label>
+                    <input asp-for="FullName" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PhoneNumber" class="form-label">Phone Number</label>
+                    <input asp-for="PhoneNumber" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DateOfBirth" class="form-label">Date of Birth</label>
+                    <input asp-for="DateOfBirth" type="date" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="AvatarFile" class="form-label">Avatar</label>
+                    <input asp-for="AvatarFile" type="file" class="form-control" accept="image/*" />
+                </div>
+            </div>
+
+            <div class="profile-form-actions">
+                <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-2"></i>Cancel</a>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-2"></i>Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts { @{await Html.RenderPartialAsync("_ValidationScriptsPartial");} }

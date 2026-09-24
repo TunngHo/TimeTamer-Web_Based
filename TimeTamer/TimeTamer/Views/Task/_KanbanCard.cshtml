@@ -1,0 +1,32 @@
+﻿@model TimeTamer.Models.TaskItem
+@{
+    string taskType = Model.Category?.TaskType ?? "Uncategorized";
+    string borderClass = Model.PriorityLevel switch { 0 => "border-secondary", 2 => "border-warning", 3 => "border-danger", _ => "border-info" };
+    string priorityText = Model.PriorityLevel switch { 0 => "Low", 2 => "High", 3 => "Critical", _ => "Medium" };
+    var (icon, color) = taskType switch
+    {
+        "Study" => ("bi-book", "bg-info text-dark"),
+        "Hangout" => ("bi-cup-hot", "bg-warning text-dark"),
+        "Sport" => ("bi-bicycle", "bg-success"),
+        "Daily" => ("bi-house-heart", "bg-secondary"),
+        _ => ("bi-briefcase", "bg-primary")
+    };
+    var isAdmin = ViewBag.IsAdmin as bool? ?? (User.HasClaim("IsAdmin", "true") || User.IsInRole("Admin"));
+    var isAssignedTask = !string.IsNullOrWhiteSpace(Model.SharedTaskGroupId);
+    var isLocked = isAssignedTask && Model.Status == "Completed" && !isAdmin;
+}
+
+<div class="kanban-card @borderClass @(isLocked ? "kanban-card-locked" : "")" data-id="@Model.Id" data-status="@Model.Status" data-locked="@(isLocked.ToString().ToLower())" data-title="@Model.Title" data-desc="@(string.IsNullOrEmpty(Model.Description) ? "No description." : Model.Description)" data-type="@taskType" data-deadline="@(Model.Deadline?.ToString("MM/dd/yyyy HH:mm") ?? "None")" data-priority="@priorityText" data-meta="@Model.Metadata">
+    @if (!string.IsNullOrEmpty(Model.ImageUrl)) { <img src="@Model.ImageUrl" class="kanban-thumb mb-2" alt="@Model.Title" /> }
+    <h6 class="fw-bold text-dark mb-1">@Model.Title</h6>
+    <span class="badge mb-2 @color" style="font-size: 0.7rem;"><i class="bi @icon me-1"></i>@taskType</span>
+    @if (Model.Deadline.HasValue) { <div class="text-muted small mb-2"><i class="bi bi-clock"></i> @Model.Deadline.Value.ToString("MM/dd")</div> }
+    @if (isLocked) { <div class="text-muted small mb-2"><i class="bi bi-lock-fill me-1"></i>Locked</div> }
+    <div class="kb-actions d-flex justify-content-end border-top pt-2 mt-2">
+        <a asp-controller="SubTasks" asp-action="Create" asp-route-taskId="@Model.Id" class="btn btn-sm btn-light text-info me-1 py-0 px-2" title="Subtasks"><i class="bi bi-list-check"></i></a>
+        @if (isAdmin || !isAssignedTask)
+        {
+            <a asp-controller="Task" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-light text-warning me-1 py-0 px-2" title="Edit"><i class="bi bi-pencil-square"></i></a>
+        }
+    </div>
+</div>

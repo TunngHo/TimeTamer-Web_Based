@@ -1,0 +1,58 @@
+﻿@using TimeTamer.Models
+@model IEnumerable<TimeTamer.Models.Reminder>
+@{
+    ViewData["Title"] = "Reminders";
+    var tasks = ViewBag.Tasks as IEnumerable<TaskItem> ?? Enumerable.Empty<TaskItem>();
+    var selectedTaskId = ViewBag.SelectedTaskId as int?;
+}
+
+<div class="container mt-4">
+    <h1 class="fw-bold text-primary mb-4">Reminders</h1>
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="panel-card">
+                <h2>Create Reminder</h2>
+                @if (ViewBag.Error != null) { <div class="alert alert-warning">@ViewBag.Error</div> }
+                <form asp-action="Create" method="post">
+                    <div class="mb-3"><label class="form-label">Task</label><select name="TaskItemId" class="form-select" required data-selected-task-id="@selectedTaskId">@foreach (var task in tasks) { <option value="@task.Id" data-deadline="@task.Deadline?.ToString("yyyy-MM-ddTHH:mm")" selected="@(selectedTaskId == task.Id)">@task.Title - deadline @task.Deadline?.ToString("MM/dd HH:mm")</option> }</select></div>
+                    <div class="mb-3"><label class="form-label">Message</label><input name="Message" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Remind At</label><input id="remindAt" name="RemindAt" type="datetime-local" class="form-control" required />
+                        <div class="form-text">Remind At must be before the selected task deadline.</div></div>
+                    <button class="btn btn-primary w-100" type="submit">Create Reminder</button>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="panel-card">
+                <h2>Reminder List</h2>
+                @foreach (var reminder in Model)
+                {
+                    <div class="list-line">
+                        <div><strong>@reminder.Message</strong><div class="small text-muted">@reminder.TaskItem?.Title - @reminder.RemindAt.ToString("MM/dd/yyyy HH:mm")</div></div>
+                        <div class="d-flex gap-2"><form asp-action="Toggle" method="post"><input type="hidden" name="id" value="@reminder.Id" /><button class="btn btn-sm @(reminder.IsSent ? "btn-secondary" : "btn-outline-success")" type="submit">@(reminder.IsSent ? "Done" : "Mark done")</button></form><form asp-action="Delete" method="post"><input type="hidden" name="id" value="@reminder.Id" /><button class="btn btn-sm btn-outline-danger" type="submit">Delete</button></form></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+<script>
+function updateReminderDeadlineLimit() {
+    const select = document.querySelector('select[name="TaskItemId"]');
+    const input = document.getElementById('remindAt');
+    const selected = select?.selectedOptions?.[0];
+    if (!selected || !input) return;
+    input.max = selected.dataset.deadline || '';
+}
+document.querySelector('select[name="TaskItemId"]')?.addEventListener('change', updateReminderDeadlineLimit);
+const taskSelect = document.querySelector('select[name="TaskItemId"]');
+const selectedTaskId = taskSelect?.dataset.selectedTaskId;
+if (selectedTaskId) taskSelect.value = selectedTaskId;
+updateReminderDeadlineLimit();
+</script>
+}
+
+

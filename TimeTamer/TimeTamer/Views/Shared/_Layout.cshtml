@@ -1,0 +1,406 @@
+﻿@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isAdmin = User.HasClaim("IsAdmin", "true") || User.IsInRole("Admin");
+    var currentSid = User.FindFirst("LoginSessionKey")?.Value ?? string.Empty;
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    string Active(string controller, string? action = null)
+    {
+        var controllerMatches = string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase);
+        var actionMatches = action == null || string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase);
+        return controllerMatches && actionMatches ? "active" : string.Empty;
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TimeTamer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/TimeTamer.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="@(isAuthenticated ? "has-sidebar" : "guest-layout")">
+    @if (isAuthenticated)
+    {
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-brand-row">
+                <a class="sidebar-brand" asp-area="" asp-controller="Home" asp-action="Index" title="TimeTamer">
+                    <span class="sidebar-brand-icon"><i class="bi bi-hourglass-split"></i></span>
+                    <span class="sidebar-label">TimeTamer</span>
+                </a>
+                <button class="sidebar-toggle" id="sidebarToggle" type="button" title="Collapse navigation" aria-label="Collapse navigation" aria-expanded="true">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav" aria-label="Main navigation">
+                <a class="sidebar-link @Active("Home")" asp-area="" asp-controller="Home" asp-action="Index" title="Dashboard">
+                    <i class="bi bi-speedometer2"></i><span class="sidebar-label">Dashboard</span>
+                </a>
+                <a class="sidebar-link @Active("Task", "Index")" asp-controller="Task" asp-action="Index" title="Tasks">
+                    <i class="bi bi-check2-square"></i><span class="sidebar-label">Tasks</span>
+                </a>
+                <a class="sidebar-link @Active("Calendar")" asp-controller="Calendar" asp-action="Index" title="Calendar">
+                    <i class="bi bi-calendar3"></i><span class="sidebar-label">Calendar</span>
+                </a>
+                <a class="sidebar-link @Active("Reminders")" asp-controller="Reminders" asp-action="Index" title="Reminders">
+                    <i class="bi bi-bell"></i><span class="sidebar-label">Reminders</span>
+                </a>
+
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title sidebar-label">More</span>
+                    <a class="sidebar-link @Active("Task", "Kanban")" asp-controller="Task" asp-action="Kanban" title="Kanban">
+                        <i class="bi bi-kanban"></i><span class="sidebar-label">Kanban</span>
+                    </a>
+                    <a class="sidebar-link @Active("Goals")" asp-controller="Goals" asp-action="Index" title="Goals">
+                        <i class="bi bi-bullseye"></i><span class="sidebar-label">Goals</span>
+                    </a>
+                    <a class="sidebar-link @Active("Habits")" asp-controller="Habits" asp-action="Index" title="Habits">
+                        <i class="bi bi-repeat"></i><span class="sidebar-label">Habits</span>
+                    </a>
+                    <a class="sidebar-link @Active("Category")" asp-controller="Category" asp-action="Index" title="Categories">
+                        <i class="bi bi-tags"></i><span class="sidebar-label">Categories</span>
+                    </a>
+                    <a class="sidebar-link @Active("Messages")" asp-controller="Messages" asp-action="Index" title="Messages">
+                        <i class="bi bi-chat-dots"></i><span class="sidebar-label">Messages</span>
+                    </a>
+                    <a class="sidebar-link @Active("Achievements")" asp-controller="Achievements" asp-action="Index" title="Achievements">
+                        <i class="bi bi-award"></i><span class="sidebar-label">Achievements</span>
+                    </a>
+                    @if (isAdmin)
+                    {
+                        <a class="sidebar-link @Active("Admin")" asp-controller="Admin" asp-action="Index" title="Admin">
+                            <i class="bi bi-shield-lock"></i><span class="sidebar-label">Admin</span>
+                        </a>
+                    }
+                    <a class="sidebar-link @Active("Task", "ArchiveList")" asp-controller="Task" asp-action="ArchiveList" title="Archive">
+                        <i class="bi bi-archive"></i><span class="sidebar-label">Archive</span>
+                    </a>
+                    <a class="sidebar-link @Active("Task", "Trash")" asp-controller="Task" asp-action="Trash" title="Trash">
+                        <i class="bi bi-trash3"></i><span class="sidebar-label">Trash</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                                <a class="sidebar-link sidebar-profile @Active("Profile")" asp-controller="Profile" asp-action="Index" title="Profile">
+                    <i class="bi bi-person-circle"></i><span class="sidebar-label">Profile</span>
+                </a>
+                <a class="sidebar-link sidebar-logout" asp-controller="Account" asp-action="Logout" title="Log out">
+                    <i class="bi bi-box-arrow-right"></i><span class="sidebar-label">Log out</span>
+                </a>
+            </div>
+        </aside>
+    }
+
+    <div class="app-shell @(isAuthenticated ? "with-sidebar" : "without-sidebar")">
+        <main role="main" class="app-main pb-3">
+            @RenderBody()
+        </main>
+        <footer class="border-top footer text-muted app-footer">
+            <div class="container-fluid">&copy; 2026 - TimeTamer</div>
+        </footer>
+    </div>
+
+    <div id="reminderToastStack" class="reminder-toast-stack" aria-live="polite" aria-atomic="true"></div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (isAuthenticated)
+    {
+        <script>
+        (() => {
+            const serverSid = '@currentSid';
+            const key = 'timetamer.tab.sid';
+            const existingSid = sessionStorage.getItem(key);
+            if (!existingSid && serverSid) sessionStorage.setItem(key, serverSid);
+            const sid = sessionStorage.getItem(key) || serverSid;
+            window.TimeTamerSessionId = sid;
+
+            function withSid(url) {
+                if (!sid || !url) return url;
+                const parsed = new URL(url, window.location.origin);
+                if (parsed.origin !== window.location.origin) return url;
+                if (!parsed.searchParams.has('sid')) parsed.searchParams.set('sid', sid);
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+
+            document.addEventListener('click', event => {
+                const link = event.target.closest('a[href]');
+                if (!link || link.target || link.hasAttribute('download')) return;
+                const href = link.getAttribute('href');
+                if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                link.setAttribute('href', withSid(href));
+            });
+
+            document.addEventListener('submit', event => {
+                const form = event.target;
+                if (!sid || !form || form.method.toLowerCase() !== 'post') return;
+                if (!form.querySelector('input[name="sid"]')) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'sid';
+                    input.value = sid;
+                    form.appendChild(input);
+                }
+            });
+
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = (input, init = {}) => {
+                init.headers = new Headers(init.headers || {});
+                if (sid) init.headers.set('X-TimeTamer-Session', sid);
+                return originalFetch(input, init);
+            };
+        })();
+        </script>
+        <script>
+        (() => {
+            const sidebar = document.getElementById('appSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            const collapsedKey = 'timetamer.sidebar.collapsed';
+
+            function setCollapsed(isCollapsed) {
+                document.body.classList.toggle('sidebar-collapsed', isCollapsed);
+                sidebar?.classList.toggle('collapsed', isCollapsed);
+                toggle?.setAttribute('aria-expanded', String(!isCollapsed));
+                toggle?.setAttribute('title', isCollapsed ? 'Expand navigation' : 'Collapse navigation');
+                localStorage.setItem(collapsedKey, isCollapsed ? 'true' : 'false');
+            }
+
+            setCollapsed(localStorage.getItem(collapsedKey) === 'true');
+            toggle?.addEventListener('click', () => setCollapsed(!document.body.classList.contains('sidebar-collapsed')));
+        })();
+        </script>
+                <script>
+        window.TimeTamerNavigateTo = function (url) {
+            const nextUrl = new URL(url || '/', window.location.origin);
+            if (window.TimeTamerSessionId && nextUrl.origin === window.location.origin) {
+                nextUrl.searchParams.set('sid', window.TimeTamerSessionId);
+            }
+            window.location.href = nextUrl.toString();
+        };
+
+        window.TimeTamerDismissThenReview = function (event, url, dismissOptions, toast) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (toast) toast.remove();
+            if (dismissOptions && dismissOptions.url) {
+                const formData = new FormData();
+                formData.append('id', dismissOptions.id);
+                fetch(dismissOptions.url, { method: 'POST', body: formData }).catch(() => { });
+            }
+            window.TimeTamerNavigateTo(url);
+        };
+        (() => {
+            const stack = document.getElementById('reminderToastStack');
+            const shownMessages = window.TimeTamerShownMessages || (window.TimeTamerShownMessages = new Set());
+            const shownAdminRequests = window.TimeTamerShownAdminRequests || (window.TimeTamerShownAdminRequests = new Set());
+            const shownReminders = window.TimeTamerShownReminders || (window.TimeTamerShownReminders = new Set());
+
+            function escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+            }
+
+            async function answerSharedTaskConfirmation(taskId, status, toast, bucket, id) {
+                const noDeadline = status === 'Process' ? '&noDeadline=true' : '';
+                const response = await fetch(`/Task/UpdateStatus?id=${encodeURIComponent(taskId)}&newStatus=${encodeURIComponent(status)}${noDeadline}`, { method: 'POST' });
+                if (!response.ok) {
+                    alert('Could not update shared task status.');
+                    return;
+                }
+                toast.remove();
+                bucket.delete(id);
+                if (window.location.pathname.toLowerCase().startsWith('/task')) {
+                    window.location.reload();
+                }
+            }
+
+            function renderSharedTaskConfirmation(item, bucket) {
+                const toast = document.createElement('div');
+                toast.className = 'reminder-web-toast admin-message-toast';
+                toast.innerHTML = `
+                    <div class="reminder-toast-icon"><i class="bi ${escapeHtml(item.icon || 'bi-check2-circle')}"></i></div>
+                    <div class="reminder-toast-body">
+                        <div class="reminder-toast-title">${escapeHtml(item.title || 'Confirm shared task')}</div>
+                        <div class="reminder-toast-message">${escapeHtml(item.message)}</div>
+                        <div class="reminder-toast-time">${escapeHtml(item.time)}</div>
+                    </div>
+                    <div class="reminder-toast-actions">
+                        <button type="button" class="btn btn-sm btn-light shared-task-yes" title="Yes">Yes</button>
+                        <button type="button" class="btn btn-sm btn-outline-light shared-task-no" title="No">No</button>
+                    </div>`;
+                toast.querySelector('.shared-task-yes').addEventListener('click', () => answerSharedTaskConfirmation(item.taskId, 'Completed', toast, bucket, item.id));
+                toast.querySelector('.shared-task-no').addEventListener('click', () => answerSharedTaskConfirmation(item.taskId, 'Process', toast, bucket, item.id));
+                stack.appendChild(toast);
+            }
+
+            function renderRealtimeNotification(item) {
+                const type = item.type || 'message';
+                if (type === 'dataChanged') {
+                    handleRealtimeDataChanged(item);
+                    return;
+                }
+
+                const bucket = type === 'adminRequest'
+                    ? shownAdminRequests
+                    : type === 'reminder'
+                        ? shownReminders
+                        : shownMessages;
+                if (bucket.has(item.id)) return;
+                bucket.add(item.id);
+
+                if (type === 'sharedTaskConfirmation') {
+                    renderSharedTaskConfirmation(item, bucket);
+                    return;
+                }
+
+                const isReminder = type === 'reminder';
+                const toast = document.createElement('div');
+                toast.className = `reminder-web-toast ${type === 'adminRequest' ? 'admin-request-toast' : isReminder ? '' : 'admin-message-toast'}`;
+                toast.innerHTML = `
+                    <div class="reminder-toast-icon"><i class="bi ${escapeHtml(item.icon || 'bi-bell-fill')}"></i></div>
+                    <div class="reminder-toast-body">
+                        <div class="reminder-toast-title">${escapeHtml(item.title)}</div>
+                        <div class="reminder-toast-message">${escapeHtml(item.message)}</div>
+                        <div class="reminder-toast-time">${escapeHtml(item.time)}</div>
+                    </div>
+                    <div class="reminder-toast-actions">
+                        <a href="${escapeHtml(item.url || '/Messages/Index')}" class="btn btn-sm btn-light" title="Review"><i class="bi bi-box-arrow-up-right"></i></a>
+                        <button type="button" class="btn btn-sm btn-outline-light" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                    </div>`;
+                toast.querySelector('a').addEventListener('click', event => window.TimeTamerDismissThenReview(event, item.url || '/Messages/Index', item.dismissUrl ? { url: item.dismissUrl, id: item.id } : null, toast));
+                toast.querySelector('button').addEventListener('click', async () => {
+                    if (item.dismissUrl) {
+                        const formData = new FormData();
+                        formData.append('id', item.id);
+                        await fetch(item.dismissUrl, { method: 'POST', body: formData });
+                    }
+                    toast.remove();
+                    bucket.delete(item.id);
+                });
+                stack.appendChild(toast);
+            }
+
+            async function loadInitialNotifications() {
+                await fetchJson('/Messages/UnreadNotifications', messages => {
+                    messages.forEach(message => renderRealtimeNotification({
+                        id: message.id,
+                        type: 'message',
+                        title: message.title,
+                        message: message.message,
+                        time: message.sentAt,
+                        url: message.url || '/Messages/Index',
+                        icon: message.title === 'New task assigned' ? 'bi-send-check-fill' : 'bi-chat-dots-fill',
+                        dismissUrl: '/Messages/DismissNotification'
+                    }));
+                });
+
+                await fetchJson('/Profile/PendingAdminRequests', requests => {
+                    requests.forEach(request => renderRealtimeNotification({
+                        id: request.id,
+                        type: 'adminRequest',
+                        title: 'Admin access request',
+                        message: `${request.adminName} wants to manage your TimeTamer account.`,
+                        time: request.requestedAt,
+                        url: request.url || '/Profile/Index',
+                        icon: 'bi-shield-lock-fill'
+                    }));
+                });
+
+                await fetchJson('/Reminders/Due', reminders => {
+                    reminders.forEach(reminder => renderRealtimeNotification({
+                        id: reminder.id,
+                        type: 'reminder',
+                        title: reminder.taskTitle,
+                        message: reminder.message || 'Task reminder',
+                        time: reminder.remindAt,
+                        url: `/Task/Edit/${reminder.taskId}`,
+                        icon: 'bi-bell-fill',
+                        dismissUrl: '/Reminders/DismissDue'
+                    }));
+                });
+            }
+
+            async function fetchJson(url, onSuccess) {
+                try {
+                    const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!response.ok) return;
+                    onSuccess(await response.json());
+                } catch { }
+            }
+
+            function isEditing() {
+                const active = document.activeElement;
+                if (!active) return false;
+                const editable = active.matches?.('input:not([type="hidden"]):not([readonly]), textarea:not([readonly]), select, [contenteditable="true"]');
+                return !!editable;
+            }
+
+            function currentPathMatches(paths) {
+                const current = window.location.pathname.toLowerCase();
+                return (paths || []).some(path => {
+                    const normalized = String(path || '').toLowerCase();
+                    return normalized === '/' ? current === '/' : current.startsWith(normalized);
+                });
+            }
+
+            function showRealtimeRefreshNotice(item) {
+                const toast = document.createElement('div');
+                toast.className = 'reminder-web-toast admin-message-toast';
+                toast.innerHTML = `
+                    <div class="reminder-toast-icon"><i class="bi bi-arrow-repeat"></i></div>
+                    <div class="reminder-toast-body">
+                        <div class="reminder-toast-title">Live update available</div>
+                        <div class="reminder-toast-message">${escapeHtml(item.message || 'This page has newer data.')}</div>
+                    </div>
+                    <div class="reminder-toast-actions">
+                        <button type="button" class="btn btn-sm btn-light" title="Refresh">Refresh</button>
+                        <button type="button" class="btn btn-sm btn-outline-light" title="Dismiss"><i class="bi bi-x-lg"></i></button>
+                    </div>`;
+                toast.querySelector('button:first-child').addEventListener('click', () => window.location.reload());
+                toast.querySelector('button:last-child').addEventListener('click', () => toast.remove());
+                stack.appendChild(toast);
+            }
+
+            function handleRealtimeDataChanged(item) {
+                if (!currentPathMatches(item.paths)) return;
+                if (isEditing()) {
+                    showRealtimeRefreshNotice(item);
+                    return;
+                }
+
+                window.clearTimeout(window.TimeTamerRealtimeReloadTimer);
+                window.TimeTamerRealtimeReloadTimer = window.setTimeout(() => window.location.reload(), 650);
+            }
+
+            try {
+                const streamUrl = window.TimeTamerSessionId ? `/Notifications/Stream?sid=${encodeURIComponent(window.TimeTamerSessionId)}` : '/Notifications/Stream';
+                const events = new EventSource(streamUrl);
+                events.addEventListener('notification', event => renderRealtimeNotification(JSON.parse(event.data)));
+            } catch { }
+            loadInitialNotifications();
+        })();
+        </script>
+    }
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

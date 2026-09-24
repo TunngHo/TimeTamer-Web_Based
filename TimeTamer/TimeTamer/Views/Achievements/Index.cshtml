@@ -1,0 +1,36 @@
+﻿@model IEnumerable<TimeTamer.Models.UserAchievement>
+@{
+    ViewData["Title"] = "Achievements";
+}
+
+<div class="admin-page">
+    <div class="admin-hero">
+        <div>
+            <p class="admin-kicker">Recognition</p>
+            <h1>My Achievements</h1>
+            <p class="text-muted mb-0">Achievements awarded by admins are protected and can only be removed by an admin.</p>
+        </div>
+        <a class="btn btn-outline-primary" asp-controller="Messages" asp-action="Index"><i class="bi bi-chat-dots me-1"></i> Messages</a>
+    </div>
+
+    <div class="achievement-grid">
+        @if (!Model.Any())
+        {
+            <div class="panel-card"><p class="text-muted mb-0">No achievements yet. Complete tasks consistently and your admin can award milestones here.</p></div>
+        }
+        else
+        {
+            @foreach (var achievement in Model)
+            {
+                <div class="achievement-card">
+                    <div class="achievement-icon"><i class="bi bi-@achievement.Icon"></i></div>
+                    <div>
+                        <strong>@achievement.Title</strong>
+                        <p>@achievement.Description</p>
+                        <small>Awarded by @(achievement.AwardedByAdmin?.Username ?? "Admin") on @achievement.AwardedAt.ToString("MM/dd/yyyy")</small>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>

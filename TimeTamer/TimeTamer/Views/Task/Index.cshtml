@@ -1,0 +1,593 @@
+﻿@model TimeTamer.Models.PaginatedList<TimeTamer.Models.TaskItem>
+@using System.Text.Json
+@{ var managedUsers = ViewBag.ManagedUsers as IEnumerable<TimeTamer.Models.AdminUserLink> ?? Enumerable.Empty<TimeTamer.Models.AdminUserLink>(); }
+@{ var isAdmin = ViewBag.IsAdmin as bool? ?? (User.HasClaim("IsAdmin", "true") || User.IsInRole("Admin")); }
+@functions {
+    private static (string icon, string color) TypeStyle(string? type) => type switch
+    {
+        "Study" => ("bi-book", "bg-info text-dark"),
+        "Hangout" => ("bi-cup-hot", "bg-warning text-dark"),
+        "Sport" => ("bi-bicycle", "bg-success"),
+        "Daily" => ("bi-house-heart", "bg-secondary"),
+        _ => ("bi-briefcase", "bg-primary")
+    };
+
+    private static List<string> TaskImages(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return new List<string>();
+        raw = raw.Trim();
+        if (raw.StartsWith("["))
+        {
+            try { return JsonSerializer.Deserialize<List<string>>(raw) ?? new List<string>(); }
+            catch { return new List<string>(); }
+        }
+        return new List<string> { raw };
+    }
+
+    private static List<string> ImplementerNames(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return new List<string>();
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="fw-bold text-primary mb-0">Task List</h2>
+        @if (!string.IsNullOrEmpty(ViewBag.CurrentFilter as string))
+        {
+            <span class="badge bg-secondary fs-6 py-2 px-3 shadow-sm">
+                <i class="bi bi-funnel-fill me-1"></i> Filter: @ViewBag.CurrentFilter
+                <a asp-action="Index" asp-route-type="" class="text-white ms-3 text-decoration-none" title="Clear filter"><i class="bi bi-x-circle-fill"></i></a>
+            </span>
+        }
+        <a asp-action="Create" class="btn btn-primary fw-bold"><i class="bi bi-plus-lg"></i> Add New</a>
+    </div>
+
+    <form method="get" class="task-filter-panel mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-3"><label class="form-label small fw-bold">Search</label><input name="q" value="@ViewBag.Query" class="form-control" placeholder="Title or description" /></div>
+            <div class="col-lg-2"><label class="form-label small fw-bold">Type</label><select name="type" class="form-select"><option value="">All</option><option selected="@(ViewBag.CurrentFilter == "Work")">Work</option><option selected="@(ViewBag.CurrentFilter == "Study")">Study</option><option selected="@(ViewBag.CurrentFilter == "Hangout")">Hangout</option><option selected="@(ViewBag.CurrentFilter == "Sport")">Sport</option><option selected="@(ViewBag.CurrentFilter == "Daily")">Daily</option></select></div>
+            <div class="col-lg-2"><label class="form-label small fw-bold">Status</label><select name="status" class="form-select"><option value="">All</option><option selected="@(ViewBag.Status == "Pending")">Pending</option><option selected="@(ViewBag.Status == "Process")">Process</option><option selected="@(ViewBag.Status == "Completed")">Completed</option></select></div>
+            <div class="col-lg-2"><label class="form-label small fw-bold">Priority</label><select name="priority" class="form-select"><option value="">All</option><option value="0" selected="@(ViewBag.Priority == 0)">Low</option><option value="1" selected="@(ViewBag.Priority == 1)">Medium</option><option value="2" selected="@(ViewBag.Priority == 2)">High</option><option value="3" selected="@(ViewBag.Priority == 3)">Critical</option></select></div>
+            <div class="col-lg-3"><label class="form-label small fw-bold">Sort</label><select name="sort" class="form-select"><option value="">Newest</option><option value="deadline" selected="@(ViewBag.Sort == "deadline")">Deadline</option><option value="priority" selected="@(ViewBag.Sort == "priority")">Priority</option><option value="status" selected="@(ViewBag.Sort == "status")">Status</option><option value="title" selected="@(ViewBag.Sort == "title")">Title</option></select></div>
+            <div class="col-lg-2"><label class="form-label small fw-bold">From</label><input name="from" value="@ViewBag.From" type="date" class="form-control" /></div>
+            <div class="col-lg-2"><label class="form-label small fw-bold">To</label><input name="to" value="@ViewBag.To" type="date" class="form-control" /></div>
+            <div class="col-lg-3 d-flex gap-2"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Apply</button><a asp-action="Index" class="btn btn-outline-secondary">Clear</a></div>
+        </div>
+    </form>
+
+    @if (TempData["TaskSuccess"] != null) { <div class="alert alert-success">@TempData["TaskSuccess"]</div> }
+    @if (TempData["TaskError"] != null) { <div class="alert alert-warning">@TempData["TaskError"]</div> }
+    @if (ViewBag.FilterError != null) { <div class="alert alert-warning">@ViewBag.FilterError</div> }
+    @if (!string.IsNullOrEmpty(ViewBag.Scope as string)) { <div class="alert alert-info d-flex justify-content-between align-items-center"><span>Showing: <strong>@ViewBag.Scope</strong></span><a asp-action="Index" class="btn btn-sm btn-outline-primary">Clear scope</a></div> }
+
+    <div class="d-flex gap-4 mb-3">
+        <a asp-action="ArchiveList" class="btn btn-outline-secondary"><i class="bi bi-archive"></i> Archive</a>
+        <a asp-action="Trash" class="btn btn-outline-danger"><i class="bi bi-trash3"></i> Trash</a>
+        <form asp-action="ArchiveOldCompleted" method="post"><button class="btn btn-outline-primary" type="submit"><i class="bi bi-box-arrow-down"></i> Archive completed older than 30 days</button></form>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 90px;">Image</th>
+                    <th>Category</th>
+                    <th>Title</th>
+                    <th>Deadline</th>
+                    <th>Status</th>
+                    <th>Goal</th>
+                    <th>Implementer</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    var taskType = item.Category?.TaskType ?? "Uncategorized";
+                    var (icon, color) = TypeStyle(taskType);
+                    var images = TaskImages(item.ImageUrl);
+                    var imageJson = JsonSerializer.Serialize(images);
+                    var implementers = ImplementerNames(item.Implementer);
+                    var isAssignedTask = !string.IsNullOrWhiteSpace(item.SharedTaskGroupId);
+                    <tr class="task-row" style="cursor:pointer"
+                        data-id="@item.Id"
+                        data-title="@item.Title"
+                        data-desc="@item.Description"
+                        data-type="@taskType"
+                        data-implementer="@item.Implementer"
+                        data-image="@(images.FirstOrDefault() ?? "")"
+                        data-images='@Html.Raw(imageJson)'
+                        data-meta="@item.Metadata"
+                        data-deadline="@item.Deadline?.ToString("o")"
+                        data-created="@item.CreatedAt.ToString("o")"
+                        data-start="@item.StartTime?.ToString("o")"
+                        data-iscompleted="@item.IsCompleted.ToString().ToLower()"
+                        data-completedat="@item.CompletedAt?.ToString("o")">
+                        <td>
+                            @if (images.Any())
+                            {
+                                <button type="button" class="task-thumb-button" title="View image">
+                                    <img src="@images.First()" alt="@item.Title" class="task-thumb" />
+                                    @if (images.Count > 1) { <span class="task-thumb-count">+@(images.Count - 1)</span> }
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="task-thumb-placeholder"><i class="bi bi-image"></i></span>
+                            }
+                        </td>
+                        <td><span class="badge @color"><i class="bi @icon me-1"></i>@taskType</span></td>
+                        <td class="fw-bold">@item.Title</td>
+                        <td>@(item.Deadline?.ToString("MM/dd/yyyy") ?? "-")</td>
+                        <td class="status-cell">
+                            <select class="form-select form-select-sm task-status-select" data-task-id="@item.Id" data-original-status="@item.Status" aria-label="Task status" @(isAssignedTask && item.Status == "Completed" && !isAdmin ? "disabled" : "")>
+                                <option value="Pending" selected="@(item.Status == "Pending")">Pending</option>
+                                <option value="Process" selected="@(item.Status == "Process")">Process</option>
+                                <option value="Completed" selected="@(item.Status == "Completed")">Completed</option>
+                            </select>
+                            @if (isAssignedTask && item.Status == "Completed" && !isAdmin)
+                            {
+                                <div class="small text-muted mt-1"><i class="bi bi-lock-fill me-1"></i>Locked</div>
+                            }
+                        </td>
+                        <td>@(item.Goal?.Title ?? "-")</td>
+                        <td>
+                            @if (implementers.Any())
+                            {
+                                <button type="button" class="btn btn-sm btn-light border rounded-pill implementer-detail-button" data-implementer="@item.Implementer" title="View implementers">
+                                    <i class="bi bi-people me-1"></i>@implementers.Count @(implementers.Count == 1 ? "person" : "people")
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">Not assigned</span>
+                            }
+                        </td>
+                        <td class="text-center action-btns">
+                            <a asp-controller="SubTasks" asp-action="Create" asp-route-taskId="@item.Id" class="btn btn-sm btn-outline-info" title="Manage subtasks"><i class="bi bi-list-check"></i></a>
+                            <a asp-controller="Reminders" asp-action="Index" asp-route-taskId="@item.Id" class="btn btn-sm btn-outline-primary" title="Create reminder"><i class="bi bi-bell"></i></a>
+                            @if (managedUsers.Any())
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-dark task-assign-button" title="Assign" data-task-id="@item.Id" data-task-title="@item.Title"><i class="bi bi-send-plus"></i></button>
+                            }
+                            <form asp-action="GenerateRecurring" method="post" class="d-inline"><input type="hidden" name="id" value="@item.Id" /><button type="submit" class="btn btn-sm btn-outline-success" title="Create next recurring"><i class="bi bi-arrow-repeat"></i></button></form>
+                            @if (item.IsCompleted || item.Status == "Completed")
+                            {
+                                <form asp-action="Achieve" method="post" class="d-inline"><input type="hidden" name="id" value="@item.Id" /><button type="submit" class="btn btn-sm btn-outline-secondary" title="Achieve"><i class="bi bi-archive"></i></button></form>
+                            }
+                            @if (isAdmin || !isAssignedTask)
+                            {
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning" title="Edit"><i class="bi bi-pencil"></i></a>
+                            }
+                            <form asp-action="DeleteFast" method="post" class="d-inline task-delete-form"><input type="hidden" name="id" value="@item.Id" /><button type="submit" class="btn btn-sm btn-outline-danger" title="Move to Trash"><i class="bi bi-trash"></i></button></form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_Pagination", Model)
+</div>
+
+
+
+<div class="modal fade" id="assignTaskModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white"><h5 class="modal-title">Assign Task</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <form asp-action="Assign" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-body">
+                    <input type="hidden" id="assignTaskId" name="id" />
+                    <p class="text-muted">Send <strong id="assignTaskTitle"></strong> to one approved user.</p>
+                    <label class="form-label">User</label>
+                    <select class="form-select" name="targetUserId" required>
+                        @foreach (var link in managedUsers)
+                        {
+                            var name = string.IsNullOrWhiteSpace(link.User?.FullName) ? link.User?.Username : link.User?.FullName;
+                            <option value="@link.UserId">@name (@link.User?.UserCode)</option>
+                        }
+                    </select>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="processDeadlineModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Start Processing</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="processDeadlineHelp" class="text-muted mb-3">Choose a deadline before moving this task to Process. Start time will be set to now.</p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="processDeadlineMode" id="processDeadlineSpecific" value="specific" checked>
+                    <label class="form-check-label fw-semibold" for="processDeadlineSpecific">Specific time</label>
+                </div>
+                <input type="datetime-local" id="processDeadlineValue" class="form-control mb-3" />
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="processDeadlineMode" id="processDeadlineNone" value="none">
+                    <label class="form-check-label fw-semibold" for="processDeadlineNone">No deadline</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirmProcessDeadline" class="btn btn-primary">Start</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="implementerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Implementers</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="implementerList" class="d-flex flex-column gap-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="taskDeleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white"><h5 class="modal-title">Move task to Trash?</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="mb-3">This task will move to Trash. You can restore it later.</p>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="hideTaskDeleteConfirm"><label class="form-check-label" for="hideTaskDeleteConfirm">Don't show again.</label></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" id="confirmTaskDelete" class="btn btn-danger">Move to Trash</button></div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Task Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="mImageGallery" class="task-detail-gallery d-none"></div>
+                <h3 id="mTitle" class="fw-bold text-primary mb-3"></h3>
+                <div class="d-flex flex-wrap gap-4 mb-3 p-3 bg-light rounded border">
+                    <div><small class="text-muted d-block mb-1"><i class="bi bi-clock me-1"></i>Created</small><span id="mCreated" class="fw-bold text-secondary small"></span></div>
+                    <div class="border-start ps-4"><small class="text-muted d-block mb-1"><i class="bi bi-person-check me-1"></i>Implementer</small><span id="mImplementer" class="fw-bold text-secondary small"></span></div>
+                    <div class="border-start ps-4"><small class="text-muted d-block mb-1"><i class="bi bi-play-circle-fill text-primary me-1"></i>Start</small><span id="mStart" class="fw-bold text-primary small"></span></div>
+                    <div class="border-start ps-4"><small class="text-muted d-block mb-1"><i class="bi bi-calendar-event me-1"></i>Deadline</small><span id="mDeadline" class="fw-bold small"></span></div>
+                    <div id="mCompletedContainer" class="border-start ps-4 d-none"><small class="text-muted d-block mb-1"><i class="bi bi-check-circle-fill me-1"></i>Completed</small><span id="mCompleted" class="fw-bold small"></span></div>
+                </div>
+                <p id="mDesc" class="text-muted border-bottom pb-3"></p>
+                <h6 class="fw-bold text-dark mb-3">Details</h6>
+                <div id="mMeta" class="row g-3"></div>
+                <div class="mt-4 border-top pt-3">
+                    <h6 class="fw-bold text-secondary mb-2">Completion History</h6>
+                    <div id="timeLogHistoryContainer" class="small"><em class="text-muted">No completed subtasks yet.</em></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="imagePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0"><h5 class="modal-title text-white">Task image</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body text-center task-large-preview-wrap">
+            <button type="button" id="prevTaskImage" class="task-image-nav task-image-prev" aria-label="Previous image"><i class="bi bi-chevron-left"></i></button>
+            <img id="largeTaskImage" class="task-large-preview" alt="Task image preview" />
+            <button type="button" id="nextTaskImage" class="task-image-nav task-image-next" aria-label="Next image"><i class="bi bi-chevron-right"></i></button>
+        </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function timeAgo(dateParam) {
+    const date = typeof dateParam === 'object' ? dateParam : new Date(dateParam);
+    const seconds = Math.round((new Date() - date) / 1000);
+    const minutes = Math.round(seconds / 60);
+    const hours = Math.round(minutes / 60);
+    const days = Math.round(hours / 24);
+    if (seconds < 60) return 'Just now';
+    if (minutes < 60) return `${minutes} minutes ago`;
+    if (hours < 24) return `${hours} hours ago`;
+    return `${days} days ago`;
+}
+
+function formatDate(value) {
+    if (!value) return '<span class="text-muted fst-italic">Not set</span>';
+    const date = new Date(value);
+    return `${date.toLocaleTimeString('en-US')} ${date.toLocaleDateString('en-US')}`;
+}
+
+function detailKeysFor(type) {
+    const map = {
+        Work: ['ProjectName', 'Collaborators', 'Blocker'],
+        Study: ['Target', 'Resources'],
+        Hangout: ['Location', 'Budget', 'Friends'],
+        Sport: ['ExerciseType', 'Goal'],
+        Daily: ['Checklist', 'Recurring']
+    };
+    return map[type] || [];
+}
+
+function detailLabel(key) {
+    const labels = {
+        ProjectName: 'Project / Module',
+        Collaborators: 'Collaborators',
+        Blocker: 'Blockers',
+        Target: 'Learning Targets',
+        Resources: 'Resources',
+        Location: 'Locations',
+        Budget: 'Estimated Budget',
+        Friends: 'Participants',
+        ExerciseType: 'Exercise Type',
+        Goal: 'Goal',
+        Checklist: 'Checklist',
+        Recurring: 'Repeat Cycle'
+    };
+    return labels[key] || key;
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function renderTypedDetails(type, rawMeta) {
+    const keys = detailKeysFor(type);
+    const parts = keys
+        .filter(key => rawMeta[key])
+        .map(key => `<div class="col-6"><small class="text-uppercase fw-bold text-secondary" style="font-size:0.7rem">${detailLabel(key)}</small><div class="text-dark border-start border-primary border-3 ps-2">${rawMeta[key]}</div></div>`);
+    return parts.join('') || '<div class="col-12 text-muted fst-italic">No extra details.</div>';
+}
+
+function parseImages(row) {
+    try { return JSON.parse(row.dataset.images || '[]'); }
+    catch { return row.dataset.image ? [row.dataset.image] : []; }
+}
+
+let activePreviewImages = [];
+let activePreviewIndex = 0;
+
+function paintLargeImage() {
+    if (!activePreviewImages.length) return;
+    document.getElementById('largeTaskImage').src = activePreviewImages[activePreviewIndex];
+}
+
+function showLargeImage(images, startIndex = 0) {
+    activePreviewImages = Array.isArray(images) ? images.filter(Boolean) : [images].filter(Boolean);
+    if (!activePreviewImages.length) return;
+    activePreviewIndex = ((startIndex % activePreviewImages.length) + activePreviewImages.length) % activePreviewImages.length;
+    paintLargeImage();
+    new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
+}
+
+function movePreviewImage(delta) {
+    if (!activePreviewImages.length) return;
+    activePreviewIndex = (activePreviewIndex + delta + activePreviewImages.length) % activePreviewImages.length;
+    paintLargeImage();
+}
+
+async function loadCompletionHistory(taskId) {
+    const container = document.getElementById('timeLogHistoryContainer');
+    container.innerHTML = '<em class="text-muted">Loading...</em>';
+    const response = await fetch(`/SubTasks/GetCompletionHistory?taskId=${taskId}`);
+    const rows = await response.json();
+    if (!rows.length) {
+        container.innerHTML = '<em class="text-muted">No completed subtasks yet.</em>';
+        return;
+    }
+    container.innerHTML = rows.map(row => `<div class="d-flex justify-content-between border-bottom py-2"><span><i class="bi bi-check-circle text-success me-1"></i>${row.title}</span><span class="text-muted">${row.completedAt}</span></div>`).join('');
+}
+
+
+let pendingDeleteForm = null;
+document.querySelectorAll('.task-delete-form').forEach(form => {
+    form.addEventListener('submit', event => {
+        if (form.dataset.confirmed === '1' || localStorage.getItem('taskDeleteConfirmHidden') === '1') return;
+        event.preventDefault();
+        pendingDeleteForm = form;
+        new bootstrap.Modal(document.getElementById('taskDeleteConfirmModal')).show();
+    });
+});
+document.getElementById('confirmTaskDelete')?.addEventListener('click', () => {
+    if (document.getElementById('hideTaskDeleteConfirm')?.checked) localStorage.setItem('taskDeleteConfirmHidden', '1');
+    if (pendingDeleteForm) {
+        pendingDeleteForm.dataset.confirmed = '1';
+        pendingDeleteForm.requestSubmit();
+    }
+});
+let pendingStatusSelect = null;
+let pendingDeadlineAction = 'process';
+const processDeadlineModalEl = document.getElementById('processDeadlineModal');
+const processDeadlineModal = processDeadlineModalEl ? new bootstrap.Modal(processDeadlineModalEl) : null;
+
+function configureDeadlineModal(action) {
+    pendingDeadlineAction = action;
+    const title = processDeadlineModalEl?.querySelector('.modal-title');
+    const help = document.getElementById('processDeadlineHelp');
+    const button = document.getElementById('confirmProcessDeadline');
+    if (action === 'pending') {
+        if (title) title.textContent = 'Reset Deadline';
+        if (help) help.textContent = 'Choose a new deadline for this task, or mark it as no deadline.';
+        if (button) button.textContent = 'Save';
+    } else {
+        if (title) title.textContent = 'Start Processing';
+        if (help) help.textContent = 'Choose a deadline before moving this task to Process. Start time will be set to now.';
+        if (button) button.textContent = 'Start';
+    }
+    document.getElementById('processDeadlineSpecific').checked = true;
+    document.getElementById('processDeadlineValue').value = '';
+}
+
+function resetStatusSelect(select) {
+    select.value = select.dataset.originalStatus || 'Pending';
+}
+
+async function updateTaskStatus(select, extra = {}) {
+    const params = new URLSearchParams();
+    params.set('id', select.dataset.taskId);
+    params.set('newStatus', select.value);
+    if (extra.noDeadline) params.set('noDeadline', 'true');
+    if (extra.deadline) params.set('deadline', extra.deadline);
+    if (extra.resetDeadline) params.set('resetDeadline', 'true');
+
+    const response = await fetch(`/Task/UpdateStatus?${params.toString()}`, { method: 'POST' });
+    if (!response.ok) {
+        const message = await response.text();
+        alert(message || 'Could not update status.');
+        resetStatusSelect(select);
+        return;
+    }
+    window.location.reload();
+}
+
+document.querySelectorAll('.task-status-select').forEach(select => {
+    select.addEventListener('click', event => event.stopPropagation());
+    select.addEventListener('change', event => {
+        event.stopPropagation();
+        if (select.value === 'Process') {
+            pendingStatusSelect = select;
+            configureDeadlineModal('process');
+            processDeadlineModal?.show();
+            return;
+        }
+        if (select.dataset.originalStatus === 'Process' && select.value === 'Pending') {
+            if (confirm('Do you want to reset this task deadline?')) {
+                pendingStatusSelect = select;
+                configureDeadlineModal('pending');
+                processDeadlineModal?.show();
+                return;
+            }
+        }
+        updateTaskStatus(select);
+    });
+});
+
+processDeadlineModalEl?.addEventListener('hidden.bs.modal', () => {
+    if (pendingStatusSelect) {
+        resetStatusSelect(pendingStatusSelect);
+        pendingStatusSelect = null;
+    }
+});
+
+document.getElementById('confirmProcessDeadline')?.addEventListener('click', () => {
+    if (!pendingStatusSelect) return;
+    const select = pendingStatusSelect;
+    const noDeadline = document.getElementById('processDeadlineNone').checked;
+    const deadline = document.getElementById('processDeadlineValue').value;
+    if (!noDeadline && !deadline) {
+        alert('Please choose a deadline or select No deadline.');
+        return;
+    }
+    const extra = { noDeadline, deadline };
+    if (pendingDeadlineAction === 'pending') extra.resetDeadline = true;
+    pendingStatusSelect = null;
+    processDeadlineModal?.hide();
+    updateTaskStatus(select, extra);
+});
+
+document.getElementById('prevTaskImage')?.addEventListener('click', () => movePreviewImage(-1));
+document.getElementById('nextTaskImage')?.addEventListener('click', () => movePreviewImage(1));
+
+document.querySelectorAll('.task-assign-button').forEach(button => {
+    button.addEventListener('click', event => {
+        event.stopPropagation();
+        document.getElementById('assignTaskId').value = button.dataset.taskId;
+        document.getElementById('assignTaskTitle').textContent = button.dataset.taskTitle || 'this task';
+        new bootstrap.Modal(document.getElementById('assignTaskModal')).show();
+    });
+});
+document.querySelectorAll('.task-thumb-button').forEach(button => {
+    button.addEventListener('click', event => {
+        event.stopPropagation();
+        const row = button.closest('.task-row');
+        const images = parseImages(row);
+        if (images.length) showLargeImage(images, 0);
+    });
+});
+document.querySelectorAll('.implementer-detail-button').forEach(button => {
+    button.addEventListener('click', event => {
+        event.stopPropagation();
+        const names = (button.dataset.implementer || '').split(',').map(name => name.trim()).filter(Boolean);
+        const list = document.getElementById('implementerList');
+        list.innerHTML = names.length
+            ? names.map(name => `<div class="d-flex align-items-center gap-2 border rounded px-3 py-2"><i class="bi bi-person-check text-primary"></i><span class="fw-semibold">${escapeHtml(name)}</span></div>`).join('')
+            : '<div class="text-muted">Not assigned.</div>';
+        new bootstrap.Modal(document.getElementById('implementerModal')).show();
+    });
+});
+
+document.querySelectorAll('.task-row').forEach(row => {
+    row.addEventListener('click', e => {
+        if (e.target.closest('.action-btns') || e.target.closest('.status-cell') || e.target.closest('.task-thumb-button') || e.target.closest('.implementer-detail-button')) return;
+        const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+        const gallery = document.getElementById('mImageGallery');
+        const images = parseImages(row);
+        if (images.length) {
+            gallery.classList.remove('d-none');
+            gallery.innerHTML = images.map((src, index) => `<button type="button" class="task-detail-image-button" data-index="${index}"><img src="${src}" alt="Task image" /></button>`).join('');
+            gallery.querySelectorAll('[data-index]').forEach(btn => btn.addEventListener('click', () => showLargeImage(images, Number(btn.dataset.index))));
+        } else {
+            gallery.classList.add('d-none');
+            gallery.innerHTML = '';
+        }
+        document.getElementById('mTitle').textContent = row.dataset.title;
+        document.getElementById('mDesc').textContent = row.dataset.desc || 'No description.';
+        document.getElementById('mImplementer').textContent = row.dataset.implementer || 'Not assigned';
+
+        const createdAt = new Date(row.dataset.created);
+        document.getElementById('mCreated').innerHTML = `<span title="${createdAt.toLocaleString()}">${timeAgo(createdAt)}</span><span class="fw-normal text-muted ms-1">(${createdAt.toLocaleTimeString('en-US')} ${createdAt.toLocaleDateString('en-US')})</span>`;
+        document.getElementById('mStart').innerHTML = formatDate(row.dataset.start);
+
+        const deadlineStr = row.dataset.deadline;
+        const deadlineDate = deadlineStr ? new Date(deadlineStr) : null;
+        const isCompleted = row.dataset.iscompleted === 'true';
+        const mDeadlineEl = document.getElementById('mDeadline');
+        if (deadlineDate) {
+            const formatted = `${deadlineDate.toLocaleTimeString('en-US')} ${deadlineDate.toLocaleDateString('en-US')}`;
+            if (!isCompleted && deadlineDate < new Date()) mDeadlineEl.innerHTML = `<span class="text-danger">${formatted} <span class="badge bg-danger ms-1">Overdue</span></span>`;
+            else if (!isCompleted) mDeadlineEl.innerHTML = `<span class="text-success">${formatted} <span class="badge bg-success ms-1">On track</span></span>`;
+            else mDeadlineEl.innerHTML = `<span class="text-secondary">${formatted}</span>`;
+        } else {
+            mDeadlineEl.innerHTML = '<span class="text-muted fst-italic">None</span>';
+        }
+
+        const completedContainer = document.getElementById('mCompletedContainer');
+        const completedAtStr = row.dataset.completedat;
+        if (isCompleted && completedAtStr) {
+            completedContainer.classList.remove('d-none');
+            const completedDate = new Date(completedAtStr);
+            const formatted = `${completedDate.toLocaleTimeString('en-US')} ${completedDate.toLocaleDateString('en-US')}`;
+            document.getElementById('mCompleted').innerHTML = deadlineDate && completedDate > deadlineDate ? `<span class="text-danger">${formatted} <span class="badge bg-danger ms-1">Late</span></span>` : `<span class="text-success">${formatted} <span class="badge bg-success ms-1">On time</span></span>`;
+        } else {
+            completedContainer.classList.add('d-none');
+        }
+
+        try {
+            const meta = JSON.parse(row.dataset.meta || '{}');
+            document.getElementById('mMeta').innerHTML = renderTypedDetails(row.dataset.type, meta);
+        } catch { document.getElementById('mMeta').innerHTML = '<div class="col-12 text-danger">Invalid detail data.</div>'; }
+        loadCompletionHistory(row.dataset.id);
+        modal.show();
+    });
+});
+</script>
+}
+
+
+
+
+

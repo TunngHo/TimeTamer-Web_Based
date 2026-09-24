@@ -1,0 +1,171 @@
+﻿@model TimeTamer.Models.User
+@{
+    ViewData["Title"] = "Profile";
+    var displayName = Model.FullName ?? Model.Username;
+    var avatarUrl = Model.AvatarUrl ?? "https://via.placeholder.com/180";
+    var pendingAdminRequests = ViewBag.PendingAdminRequests as IEnumerable<TimeTamer.Models.AdminUserLink> ?? Enumerable.Empty<TimeTamer.Models.AdminUserLink>();
+    var acceptedAdmins = ViewBag.AcceptedAdmins as IEnumerable<TimeTamer.Models.AdminUserLink> ?? Enumerable.Empty<TimeTamer.Models.AdminUserLink>();
+}
+
+<div class="container profile-shell py-4">
+    <div class="profile-hero">
+        <div class="profile-identity">
+            <img src="@avatarUrl" class="profile-avatar-lg" alt="Avatar" />
+            <div>
+                <span class="profile-kicker">Personal Profile</span>
+                <h1>@displayName</h1>
+                <p>@Model.Email</p>
+            </div>
+        </div>
+        <div class="profile-action-row">
+            <a asp-action="Edit" class="btn btn-light profile-action-primary"><i class="bi bi-pencil-square me-2"></i>Edit Profile</a>
+            <a asp-action="ChangePassword" class="btn btn-outline-light"><i class="bi bi-shield-lock me-2"></i>Password</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-3">
+            <div class="profile-info-card">
+                <span>Username</span>
+                <strong>@Model.Username</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="profile-info-card">
+                <span>Email</span>
+                <strong>@(Model.Email ?? "Not updated")</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="profile-info-card">
+                <span>Phone</span>
+                <strong>@(Model.PhoneNumber ?? "Not updated")</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="profile-info-card">
+                <span>Date of Birth</span>
+                <strong>@(Model.DateOfBirth?.ToString("MM/dd/yyyy") ?? "Not updated")</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-summary-panel mt-3">
+        <div>
+            <h2>Account Overview</h2>
+            <p>Your email is locked here for account safety. You can update profile details, change your password, or permanently remove the account.</p>
+            <div class="account-code-row">
+                <span>User Code</span>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <strong id="userCodeValue">@Model.UserCode</strong>
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-copy-target="userCodeValue" title="Copy user code">
+                        <i class="bi bi-clipboard me-1"></i>Copy
+                    </button>
+                </div>
+            </div>
+            @if (Model.IsAdmin && !string.IsNullOrWhiteSpace(Model.AdminCode))
+            {
+                <div class="account-code-row admin-code">
+                    <span>Admin Code</span>
+                    <strong>@Model.AdminCode</strong>
+                </div>
+            }
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary"><i class="bi bi-arrow-left me-2"></i>Dashboard</a>
+            <a asp-action="DeleteAccount" class="btn btn-outline-danger"><i class="bi bi-person-x me-2"></i>Delete Account</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="profile-summary-panel admin-request-panel">
+                <div>
+                    <h2>Admin Requests</h2>
+                    <p>Approve only admins you trust. Approved admins can manage your productivity view, message you, and award achievements.</p>
+                    @if (!pendingAdminRequests.Any())
+                    {
+                        <div class="text-muted">No pending admin requests.</div>
+                    }
+                    else
+                    {
+                        @foreach (var request in pendingAdminRequests)
+                        {
+                            <div class="admin-request-line">
+                                <div>
+                                    <strong>@(request.Admin?.Username ?? "Admin")</strong>
+                                    <span>@request.RequestedAt.ToString("MM/dd/yyyy HH:mm")</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <form asp-action="RespondAdminRequest" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="requestId" value="@request.Id" />
+                                        <input type="hidden" name="decision" value="Accept" />
+                                        <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                    </form>
+                                    <form asp-action="RespondAdminRequest" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="requestId" value="@request.Id" />
+                                        <input type="hidden" name="decision" value="Decline" />
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Decline</button>
+                                    </form>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="profile-summary-panel admin-request-panel">
+                <div>
+                    <h2>Connected Admins</h2>
+                    <p>These admins are currently approved to manage your TimeTamer account.</p>
+                    @if (!acceptedAdmins.Any())
+                    {
+                        <div class="text-muted">No connected admins yet.</div>
+                    }
+                    else
+                    {
+                        @foreach (var link in acceptedAdmins)
+                        {
+                            <div class="admin-request-line readonly">
+                                <div>
+                                    <strong>@(link.Admin?.Username ?? "Admin")</strong>
+                                    <span>Approved @link.RespondedAt?.ToString("MM/dd/yyyy HH:mm")</span>
+                                </div>
+                                <i class="bi bi-check-circle text-success"></i>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+<script>
+document.querySelectorAll('[data-copy-target]').forEach(button => {
+    button.addEventListener('click', async () => {
+        const target = document.getElementById(button.dataset.copyTarget);
+        const text = target?.textContent?.trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            const input = document.createElement('textarea');
+            input.value = text;
+            input.style.position = 'fixed';
+            input.style.opacity = '0';
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+        }
+        const original = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+        setTimeout(() => { button.innerHTML = original; }, 1400);
+    });
+});
+</script>
+}

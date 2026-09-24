@@ -1,0 +1,157 @@
+﻿@model TimeTamer.Models.AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Admin";
+    var adminCode = ViewBag.AdminCode as string;
+    var pendingRequests = ViewBag.PendingRequests as IEnumerable<TimeTamer.Models.AdminUserLink> ?? Enumerable.Empty<TimeTamer.Models.AdminUserLink>();
+}
+
+<div class="admin-page">
+    <div class="admin-hero">
+        <div>
+            <p class="admin-kicker">Administration</p>
+            <h1>User Management</h1>
+            <p class="text-muted mb-0">Monitor accounts, task productivity, user messages, and achievements.</p>
+        </div>
+        <a class="btn btn-primary" asp-controller="Messages" asp-action="Index"><i class="bi bi-chat-dots me-1"></i> My Messages</a>
+    </div>
+
+    <div class="admin-stat-grid">
+        <div class="admin-stat"><span>Total Users</span><strong>@Model.TotalUsers</strong></div>
+        <div class="admin-stat"><span>Suspended</span><strong>@Model.SuspendedUsers</strong></div>
+        <div class="admin-stat"><span>Total Tasks</span><strong>@Model.TotalTasks</strong></div>
+        <div class="admin-stat"><span>Completed Tasks</span><strong>@Model.CompletedTasks</strong></div>
+        <div class="admin-stat"><span>Unread Messages</span><strong>@Model.UnreadUserMessages</strong></div>
+    </div>
+
+
+    <div class="panel-card admin-access-panel mb-4">
+        <div>
+            <h2>Connect a User</h2>
+            <p class="text-muted mb-2">Your admin code: <strong>@adminCode</strong>. Enter a user code or registered email to request permission to manage that user.</p>
+            @if (TempData["AdminError"] != null) { <div class="alert alert-danger">@TempData["AdminError"]</div> }
+            @if (TempData["AdminSuccess"] != null) { <div class="alert alert-success">@TempData["AdminSuccess"]</div> }
+            <form asp-action="RequestUserAccess" method="post" class="admin-code-form">
+                @Html.AntiForgeryToken()
+                <input class="form-control" name="userIdentifier" placeholder="USR-XXXXXXXX or user@example.com" required />
+                <button class="btn btn-primary" type="submit"><i class="bi bi-person-plus me-1"></i> Request Access</button>
+            </form>
+        </div>
+        <div>
+            <h2>Pending Requests</h2>
+            @if (!pendingRequests.Any())
+            {
+                <p class="text-muted mb-0">No pending user approvals.</p>
+            }
+            else
+            {
+                @foreach (var request in pendingRequests)
+                {
+                    <div class="admin-request-line readonly">
+                        <div><strong>@(string.IsNullOrWhiteSpace(request.User?.FullName) ? request.User?.Username : request.User?.FullName)</strong><span>@request.RequestedAt.ToString("MM/dd/yyyy HH:mm")</span></div>
+                        <span class="badge @(request.Status == "Declined" ? "text-bg-secondary" : "text-bg-warning")">@request.Status</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+    <div class="panel-card admin-table-card">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div>
+                <h2 class="mb-1">Accounts</h2>
+                <div class="text-muted small">Only users who approved this admin are shown here.</div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle admin-user-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Tasks</th>
+                        <th>Productivity</th>
+                        <th>Risk</th>
+                        <th>Messages</th>
+                        <th>Achievements</th>
+                        <th>Controls</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    <tr>
+                        <td>
+                            <div class="fw-bold">@user.DisplayName</div>
+                            <div class="small text-muted">@@@user.Username</div>
+                            <div class="small text-muted">@user.Email</div>
+                            <div class="d-flex gap-1 mt-1">
+                                @if (user.IsAdmin) { <span class="badge text-bg-primary">Admin</span> }
+                                @if (user.IsSuspended) { <span class="badge text-bg-danger">Suspended</span> }
+                            </div>
+                        </td>
+                        <td>
+                            <div><strong>@user.TotalTasks</strong> total</div>
+                            <div class="small text-muted">@user.CompletedTasks completed, @user.OpenTasks open</div>
+                        </td>
+                        <td style="min-width:210px">
+                            <div class="admin-progress-label"><span>@user.CompletionRate%</span><span>@user.CompletedTasks/@user.TotalTasks</span></div>
+                            <div class="admin-progress"><span style="width:@user.CompletionRate%"></span></div>
+                        </td>
+                        <td>
+                            @if (user.OverdueTasks > 0)
+                            {
+                                <span class="badge text-bg-warning">@user.OverdueTasks overdue</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Healthy</span>
+                            }
+                            @if (user.LastTaskCreatedAt == null)
+                            {
+                                <div class="small text-muted mt-1">No task yet</div>
+                            }
+                            else
+                            {
+                                <div class="small text-muted mt-1">Last task: @user.LastTaskCreatedAt.Value.ToString("MM/dd/yyyy")</div>
+                            }
+                        </td>
+                        <td>
+                            @if (user.UnreadMessages > 0)
+                            {
+                                <span class="badge text-bg-danger">@user.UnreadMessages unread</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted small">No unread</span>
+                            }
+                        </td>
+                        <td>@user.AchievementCount</td>
+                        <td>
+                            <div class="admin-actions">
+                                <a class="btn btn-sm btn-outline-primary" asp-action="UserDetails" asp-route-id="@user.UserId"><i class="bi bi-eye"></i></a>
+                                <form asp-action="ToggleSuspended" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@user.UserId" />
+                                    <button class="btn btn-sm @(user.IsSuspended ? "btn-outline-success" : "btn-outline-danger")" type="submit">@(user.IsSuspended ? "Restore" : "Suspend")</button>
+                                </form>
+                                <form asp-action="RemoveUser" method="post" onsubmit="return confirm('Are you sure you want to remove this user from your admin control?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@user.UserId" />
+                                    <button class="btn btn-sm btn-outline-dark" type="submit" title="Remove user from this admin">Remove</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+

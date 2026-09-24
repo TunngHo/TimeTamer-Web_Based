@@ -1,0 +1,128 @@
+﻿@model TimeTamer.Models.AdminUserDetailViewModel
+@{
+    ViewData["Title"] = "User Details";
+    var user = Model.Summary;
+}
+
+<div class="admin-page">
+    @if (TempData["AdminError"] != null)
+    {
+        <div class="alert alert-warning">@TempData["AdminError"]</div>
+    }
+    <div class="admin-hero">
+        <div>
+            <p class="admin-kicker">User Detail</p>
+            <h1>@user.DisplayName</h1>
+            <p class="text-muted mb-0">@@@user.Username · @user.Email</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-left me-1"></i> Back</a>
+    </div>
+
+    <div class="admin-stat-grid">
+        <div class="admin-stat"><span>Total Tasks</span><strong>@user.TotalTasks</strong></div>
+        <div class="admin-stat"><span>Completed</span><strong>@user.CompletedTasks</strong></div>
+        <div class="admin-stat"><span>Open</span><strong>@user.OpenTasks</strong></div>
+        <div class="admin-stat"><span>Overdue</span><strong>@user.OverdueTasks</strong></div>
+        <div class="admin-stat"><span>Productivity</span><strong>@user.CompletionRate%</strong></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-7">
+            <div class="panel-card mb-4">
+                <h2>Productivity Chart</h2>
+                <div class="admin-detail-chart">
+                    <div><span style="height:@Math.Max(user.CompletedTasks, 1)rem"></span><strong>@user.CompletedTasks</strong><small>Completed</small></div>
+                    <div><span style="height:@Math.Max(user.OpenTasks, 1)rem"></span><strong>@user.OpenTasks</strong><small>Open</small></div>
+                    <div><span style="height:@Math.Max(user.OverdueTasks, 1)rem"></span><strong>@user.OverdueTasks</strong><small>Overdue</small></div>
+                </div>
+            </div>
+
+            <div class="panel-card mb-4">
+                <h2>Recent Tasks</h2>
+                @if (!Model.RecentTasks.Any())
+                {
+                    <p class="text-muted mb-0">This user has not created tasks yet.</p>
+                }
+                else
+                {
+                    @foreach (var task in Model.RecentTasks)
+                    {
+                        <div class="admin-line">
+                            <div>
+                                <strong>@task.Title</strong>
+                                <div class="small text-muted">@task.Status · created @task.CreatedAt.ToString("MM/dd/yyyy HH:mm")</div>
+                            </div>
+                            <span class="badge @(task.IsCompleted ? "text-bg-success" : "text-bg-secondary")">@(task.IsCompleted ? "Completed" : "Active")</span>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="panel-card">
+                <h2>Conversation</h2>
+                <form asp-action="SendMessage" method="post" class="admin-compose mb-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <textarea class="form-control" name="body" rows="4" placeholder="Write a message to this user" required maxlength="2000"></textarea>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-send me-1"></i> Send Message</button>
+                </form>
+                @foreach (var message in Model.Messages)
+                {
+                    <div class="message-bubble @(message.IsFromAdmin ? "from-admin" : "from-user")">
+                        <div class="message-meta">@(message.IsFromAdmin ? "Admin" : user.DisplayName) · @message.SentAt.ToString("MM/dd/yyyy HH:mm")</div>
+                        <p>@message.Body</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="panel-card mb-4">
+                <h2>Award Achievement</h2>
+                <form asp-action="AwardAchievement" method="post" class="admin-compose">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="userId" value="@user.UserId" />
+                    <input class="form-control" name="title" placeholder="Achievement title" required maxlength="120" />
+                    <select class="form-select" name="icon">
+                        <option value="trophy">Trophy</option>
+                        <option value="lightning-charge">Momentum</option>
+                        <option value="stars">Excellent</option>
+                        <option value="fire">Streak</option>
+                        <option value="gem">Special</option>
+                    </select>
+                    <textarea class="form-control" name="description" rows="3" placeholder="Description" maxlength="800"></textarea>
+                    <button class="btn btn-warning" type="submit"><i class="bi bi-award me-1"></i> Award</button>
+                </form>
+            </div>
+
+            <div class="panel-card">
+                <h2>Achievements</h2>
+                @if (!Model.Achievements.Any())
+                {
+                    <p class="text-muted mb-0">No admin achievements yet.</p>
+                }
+                else
+                {
+                    @foreach (var achievement in Model.Achievements)
+                    {
+                        <div class="achievement-card compact">
+                            <div class="achievement-icon"><i class="bi bi-@achievement.Icon"></i></div>
+                            <div>
+                                <strong>@achievement.Title</strong>
+                                <p>@achievement.Description</p>
+                                <small>Awarded @achievement.AwardedAt.ToString("MM/dd/yyyy")</small>
+                            </div>
+                            <form asp-action="DeleteAchievement" method="post" class="ms-auto">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@achievement.Id" />
+                                <input type="hidden" name="userId" value="@user.UserId" />
+                                <button class="btn btn-sm btn-outline-danger" type="submit" title="Remove achievement"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>
+

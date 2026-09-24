@@ -1,0 +1,61 @@
+﻿@{
+    ViewData["Title"] = "Sign in";
+}
+
+<div class="auth-split-shell auth-signin" data-auth-page>
+    <section class="auth-split-card">
+        <div class="auth-form-panel">
+            <div class="auth-panel-content">
+                <span class="auth-badge">TimeTamer</span>
+                <h1>Sign in</h1>
+                <p class="auth-lede">Welcome back. Pick up your schedule, tasks, reminders, and focus sessions where you left off.</p>
+
+                @if (ViewBag.Error != null) { <div class="alert alert-danger">@ViewBag.Error</div> }
+
+                <form asp-action="Login" method="post" class="auth-form">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" name="username" class="form-control" autocomplete="username" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" name="password" class="form-control" autocomplete="current-password" required />
+                    </div>
+                    <button type="submit" class="btn auth-submit">Sign in</button>
+                </form>
+
+                <div class="auth-helper-row">
+                    <a asp-action="ForgotPassword" class="auth-link">Forgot password?</a>
+                    <a asp-action="Register" class="auth-inline-switch" data-auth-slide="left">Sign up</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="auth-visual-panel">
+            <div class="auth-logo-mark">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div>
+                <span class="auth-visual-kicker">TimeTamer</span>
+                <h2>Plan calmly. Finish clearly.</h2>
+                <p>Turn busy days into focused blocks, visible priorities, and reminders that arrive at the right time.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>sessionStorage.removeItem("calendarCreatePromptHidden");</script>
+    <script>
+        (() => {
+            document.querySelectorAll('[data-auth-slide]').forEach(link => {
+                link.addEventListener('click', event => {
+                    event.preventDefault();
+                    document.querySelector('.auth-split-card')?.classList.add('auth-slide-out-left');
+                    window.setTimeout(() => { window.location.href = link.href; }, 360);
+                });
+            });
+        })();
+    </script>
+}
+

@@ -1,0 +1,145 @@
+﻿@model TimeTamer.Models.TaskItem
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Edit Task";
+    var taskType = Model.Category?.TaskType ?? "Uncategorized";
+    var goals = ViewBag.Goals as IEnumerable<TimeTamer.Models.Goal> ?? Enumerable.Empty<TimeTamer.Models.Goal>();
+    var isAdmin = User.HasClaim("IsAdmin", "true") || User.IsInRole("Admin");
+    var metadata = new Dictionary<string, string>();
+    if (!string.IsNullOrEmpty(Model.Metadata))
+    {
+        try { metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(Model.Metadata) ?? new Dictionary<string, string>(); }
+        catch { metadata = new Dictionary<string, string>(); }
+    }
+    List<string> TaskImages(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return new List<string>();
+        raw = raw.Trim();
+        if (raw.StartsWith("["))
+        {
+            try { return JsonSerializer.Deserialize<List<string>>(raw) ?? new List<string>(); }
+            catch { return new List<string>(); }
+        }
+        return new List<string> { raw };
+    }
+    var currentImages = TaskImages(Model.ImageUrl);
+    string GetMeta(string key) => metadata.ContainsKey(key) ? metadata[key] : "";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-warning p-3"><h4 class="mb-0 fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Task</h4></div>
+                <div class="card-body p-4">
+                    <form asp-action="Edit" method="post" enctype="multipart/form-data" id="taskForm">
+                        <input type="hidden" asp-for="Id" />
+                        <input type="hidden" asp-for="CategoryId" />
+                        <h5 class="text-primary border-bottom pb-2 mb-3">Basic Information</h5>
+                        <div class="mb-3"><label class="form-label fw-bold">Title</label><input asp-for="Title" class="form-control form-control-lg" required /></div>
+                        <div class="row mb-3">
+                            <div class="col-md-6"><label class="form-label fw-bold">Category</label><input type="text" class="form-control bg-light" value="@taskType" readonly /></div>
+                            <div class="col-md-6"><label class="form-label fw-bold">Start Time</label><input asp-for="StartTime" class="form-control" type="datetime-local" /></div>
+                            <div class="col-md-6 mt-3"><label class="form-label fw-bold">Deadline</label><input asp-for="Deadline" class="form-control" type="datetime-local" /></div>
+                            <div class="col-md-6 mt-3"><label class="form-label fw-bold">Priority</label><select asp-for="PriorityLevel" class="form-select"><option value="0">Low</option><option value="1">Medium</option><option value="2">High</option><option value="3">Critical</option></select></div>
+                            @if (isAdmin)
+                            {
+                                <div class="col-md-6 mt-3"><label class="form-label fw-bold">Implementer</label><input asp-for="Implementer" class="form-control" placeholder="Person responsible" /></div>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(Model.Implementer))
+                            {
+                                <div class="col-md-6 mt-3"><label class="form-label fw-bold">Implementer</label><input class="form-control bg-light" value="@Model.Implementer" readonly /></div>
+                            }
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Task Images</label>
+                            <input type="file" name="imageFiles" class="form-control" accept="image/*" multiple />
+                            @if (currentImages.Any())
+                            {
+                                <div class="task-edit-image-grid mt-3">
+                                    @foreach (var image in currentImages)
+                                    {
+                                        <label class="task-edit-image-item">
+                                            <img src="@image" class="task-edit-preview" alt="Current task image" />
+                                            <span class="task-image-remove-mark" title="Remove image">X</span>
+                                            <input type="checkbox" name="removeImages" value="@image" />
+                                        </label>
+                                    }
+                                </div>
+                                <div class="form-text">Tick X on an image to remove it. Existing images stay unless marked.</div>
+                            }
+                        </div>
+                        <div class="mb-3"><label class="form-label fw-bold">Goal</label><select asp-for="GoalId" class="form-select"><option value="">No linked goal</option>@foreach (var goal in goals) { <option value="@goal.Id">@goal.Title</option> }</select></div>
+                        <div class="mb-4"><label class="form-label fw-bold">Description</label><textarea asp-for="Description" class="form-control" rows="2"></textarea></div>
+
+                        <h5 class="text-warning border-bottom pb-2 mb-3">Details (@taskType)</h5>
+                        <div class="bg-light p-3 rounded border">
+                            @if (taskType == "Work")
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-bold">Project / Module</label><input type="text" name="meta_ProjectName" class="form-control" value="@GetMeta("ProjectName")" /></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold">Collaborators</label><input type="text" name="meta_Collaborators" class="form-control" value="@GetMeta("Collaborators")" /></div>
+                                    <div class="col-12"><label class="form-label fw-bold text-danger">Blockers</label><input type="text" name="meta_Blocker" class="form-control" value="@GetMeta("Blocker")" /></div>
+                                </div>
+                            }
+                            else if (taskType == "Study")
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-bold">Learning Targets</label><input type="text" name="meta_Target" class="form-control" value="@GetMeta("Target")" /></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold">Resources</label><input type="text" name="meta_Resources" class="form-control" value="@GetMeta("Resources")" /></div>
+                                </div>
+                            }
+                            else if (taskType == "Hangout")
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-bold">Locations</label><input type="text" name="meta_Location" class="form-control" value="@GetMeta("Location")" /></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold">Estimated Budget</label><input type="text" name="meta_Budget" class="form-control" value="@GetMeta("Budget")" /></div>
+                                    <div class="col-12"><label class="form-label fw-bold">Participants</label><input type="text" name="meta_Friends" class="form-control" value="@GetMeta("Friends")" /></div>
+                                </div>
+                            }
+                            else if (taskType == "Sport")
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-bold">Exercise Type</label><input type="text" name="meta_ExerciseType" class="form-control" value="@GetMeta("ExerciseType")" /></div>
+                                    <div class="col-md-6"><label class="form-label fw-bold">Goal</label><input type="text" name="meta_Goal" class="form-control" value="@GetMeta("Goal")" /></div>
+                                </div>
+                            }
+                            else if (taskType == "Daily")
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-8"><label class="form-label fw-bold">Checklist</label><input type="text" name="meta_Checklist" class="form-control" value="@GetMeta("Checklist")" /></div>
+                                    <div class="col-md-4"><label class="form-label fw-bold">Repeat Cycle</label><select name="meta_Recurring" class="form-select"><option value="No" selected="@(GetMeta("Recurring") == "No")">One time</option><option value="Daily" selected="@(GetMeta("Recurring") == "Daily")">Daily</option><option value="Weekly" selected="@(GetMeta("Recurring") == "Weekly")">Weekly</option></select></div>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0">This category does not have custom detail fields.</p>
+                            }
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a asp-action="Index" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn btn-warning px-5 fw-bold">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.querySelectorAll('.task-edit-image-item input[type="checkbox"]').forEach(input => {
+    input.addEventListener('change', () => {
+    const item = input.closest('.task-edit-image-item');
+    if (!item) return;
+    if (input.checked) item.classList.add('d-none');
+});
+});
+</script>
+}
+
+
+
+

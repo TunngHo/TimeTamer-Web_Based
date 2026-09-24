@@ -1,0 +1,42 @@
+﻿@model IEnumerable<TimeTamer.Models.Habit>
+@{
+    ViewData["Title"] = "Habits";
+    var today = DateTime.Today;
+}
+
+<div class="container mt-4">
+    <h1 class="fw-bold text-primary mb-4">Habit Tracker</h1>
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="panel-card">
+                <h2>Create Habit</h2>
+                <form asp-action="Create" method="post">
+                    <div class="mb-3"><label class="form-label">Name</label><input name="Name" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">Schedule</label><select name="Schedule" class="form-select"><option>Daily</option><option>Weekly</option></select></div>
+                    <div class="mb-3"><label class="form-label">Description</label><textarea name="Description" class="form-control" rows="3"></textarea></div>
+                    <button class="btn btn-success w-100" type="submit">Create Habit</button>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="row g-3">
+                @foreach (var habit in Model)
+                {
+                    var doneToday = habit.CheckIns.Any(c => c.CheckDate.Date == today);
+                    var streak = habit.CheckIns.Select(c => c.CheckDate.Date).Distinct().OrderByDescending(d => d).TakeWhile((d, i) => d == today.AddDays(-i)).Count();
+                    <div class="col-md-6">
+                        <div class="panel-card h-100">
+                            <div class="d-flex justify-content-between"><h2>@habit.Name</h2><span class="badge @(doneToday ? "bg-success" : "bg-secondary")">@(doneToday ? "Done today" : habit.Schedule)</span></div>
+                            <p class="text-muted">@(habit.Description ?? "No description")</p>
+                            <div class="small mb-3"><strong>@streak</strong> day streak - @habit.CheckIns.Count total check-ins</div>
+                            <div class="d-flex gap-2">
+                                <form asp-action="CheckIn" method="post"><input type="hidden" name="id" value="@habit.Id" /><button class="btn btn-sm btn-success" type="submit" disabled="@doneToday">Check in</button></form>
+                                <form asp-action="Archive" method="post"><input type="hidden" name="id" value="@habit.Id" /><button class="btn btn-sm btn-outline-danger" type="submit">Archive</button></form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

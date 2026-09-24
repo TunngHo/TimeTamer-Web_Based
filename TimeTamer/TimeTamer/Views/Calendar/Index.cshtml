@@ -1,0 +1,88 @@
+﻿@model IEnumerable<TimeTamer.Models.TaskItem>
+@{
+    ViewData["Title"] = "Calendar";
+    var month = (DateTime)ViewBag.SelectedMonth;
+    var first = new DateTime(month.Year, month.Month, 1);
+    var startOffset = (int)first.DayOfWeek;
+    var days = DateTime.DaysInMonth(month.Year, month.Month);
+    var prev = month.AddMonths(-1);
+    var next = month.AddMonths(1);
+    var yearStart = DateTime.Today.Year - 5;
+    var yearEnd = DateTime.Today.Year + 5;
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <h1 class="fw-bold text-primary mb-0">@month.ToString("MMMM yyyy")</h1>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <form asp-action="Index" method="get" class="d-flex gap-2 align-items-center">
+                <select name="month" class="form-select" aria-label="Month">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(m == month.Month)">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+                <select name="year" class="form-select" aria-label="Year">
+                    @for (var y = yearStart; y <= yearEnd; y++)
+                    {
+                        <option value="@y" selected="@(y == month.Year)">@y</option>
+                    }
+                </select>
+                <button class="btn btn-primary" type="submit">Go</button>
+            </form>
+            <a asp-action="Index" asp-route-year="@prev.Year" asp-route-month="@prev.Month" class="btn btn-outline-primary">Previous</a>
+            <a asp-action="Index" asp-route-year="@next.Year" asp-route-month="@next.Month" class="btn btn-outline-primary">Next</a>
+        </div>
+    </div>
+    <div class="calendar-grid">
+        @foreach (var label in new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }) { <div class="calendar-head">@label</div> }
+        @for (var i = 0; i < startOffset; i++) { <div class="calendar-cell muted"></div> }
+        @for (var day = 1; day <= days; day++)
+        {
+            var date = new DateTime(month.Year, month.Month, day);
+            var tasks = Model.Where(t => (t.StartTime.HasValue && t.StartTime.Value.Date == date) || (t.Deadline.HasValue && t.Deadline.Value.Date == date)).ToList();
+            <div class="calendar-cell @(date == DateTime.Today ? "today" : "")" data-calendar-day="@date.ToString("yyyy-MM-dd")">
+                <button type="button" class="calendar-day-button" data-calendar-create="@date.ToString("yyyy-MM-dd")">@day</button>
+                @foreach (var task in tasks)
+                {
+                    <a asp-controller="Task" asp-action="Edit" asp-route-id="@task.Id" class="calendar-task @(task.IsCompleted ? "done" : "")"><span>@task.Title</span><small>@(task.Deadline?.ToString("HH:mm") ?? task.StartTime?.ToString("HH:mm"))</small></a>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="calendarCreateModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white"><h5 class="modal-title">Create task</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p class="mb-3">Do you want to create a task?</p>
+                <div class="mb-3"><label class="form-label fw-bold">Task type</label><select id="calendarTaskType" class="form-select"><option>Work</option><option>Study</option><option>Hangout</option><option>Sport</option><option>Daily</option></select></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" id="confirmCalendarCreate" class="btn btn-primary">Create Task</button></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+let selectedCalendarDate = null;
+const createUrl = (date, type) => `/Task/CreateSpecific?type=${encodeURIComponent(type)}&date=${encodeURIComponent(date)}`;
+document.querySelectorAll('[data-calendar-create]').forEach(button => {
+    button.addEventListener('click', event => {
+        event.stopPropagation();
+        selectedCalendarDate = button.dataset.calendarCreate;
+        if (sessionStorage.getItem('calendarCreatePromptHidden') === '1') {
+            window.location.href = createUrl(selectedCalendarDate, document.getElementById("calendarTaskType")?.value || "Work");
+            return;
+        }
+        new bootstrap.Modal(document.getElementById('calendarCreateModal')).show();
+    });
+});
+document.getElementById('confirmCalendarCreate').addEventListener('click', () => {
+    if (document.getElementById('hideCalendarPrompt').checked) sessionStorage.setItem('calendarCreatePromptHidden', '1');
+    window.location.href = createUrl(selectedCalendarDate, document.getElementById("calendarTaskType")?.value || "Work");
+});
+</script>
+}
